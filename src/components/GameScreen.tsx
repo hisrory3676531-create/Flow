@@ -1,0 +1,817 @@
+import { useState, useEffect } from 'react';
+import type { FC } from 'react';
+import type { Player, Asset, GameSettings } from '../types/game.types';
+import type { RatColor } from './ProfileSetupScreen';
+import { GameBoard, BoardPlayer } from './GameBoard';
+import { FinancialStatementPanel } from './FinancialStatementPanel';
+import { BOARD_TILES } from '../data/board.data';
+import { DealModal } from './DealModal';
+import { DoodadModal } from './DoodadModal';
+import { MarketModal } from './MarketModal';
+import { CharityModal } from './CharityModal';
+import { DownturnModal } from './DownturnModal';
+import { BankModal } from './BankModal';
+import { VictoryModal } from './VictoryModal';
+import { BabyModal } from './BabyModal';
+import { BankruptcyModal } from './BankruptcyModal';
+import { SpectatorCardModal } from './SpectatorCardModal';
+import { DealCard, DoodadCard, MarketCard, DOODADS, MARKET_CARDS } from '../data/cards.data';
+import { socket } from '../services/socket';
+import { DealTradeIncomingModal } from './DealTradeIncomingModal';
+import { TurnNotification } from './TurnNotification';
+
+interface GameScreenProps {
+  player: Player;
+  playerColor: RatColor;
+  settings: GameSettings;
+  onRestart: () => void;
+}
+
+export const GameScreen: FC<GameScreenProps> = ({
+  player: initialPlayer,
+  playerColor,
+  settings,
+  onRestart
+}) => {
+  const roomId = settings?.roomId || 'GAME-77';
+
+  const [player, setPlayer] = useState<Player>(initialPlayer);
+  const [diceValue, setDiceValue] = useState<number | null>(null);
+  const [isRolling, setIsRolling] = useState(false);
+  const [hasRolledThisTurn, setHasRolledThisTurn] = useState<boolean>(false);
+  const [pendingPayday, setPendingPayday] = useState<number>(0);
+  const [charityTurnsLeft, setCharityTurnsLeft] = useState<number>(0);
+  const [skipTurnsLeft, setSkipTurnsLeft] = useState<number>(0);
+  const [incomingTradeOffer, setIncomingTradeOffer] = useState<any>(null);
+  const [tradeWaitingMessage, setTradeWaitingMessage] = useState<string>('');
+  const [isMarketDismissed, setIsMarketDismissed] = useState<boolean>(false);
+
+  // Сетевые данные игроков
+  const [roomPlayers, setRoomPlayers] = useState<BoardPlayer[]>([
+    {
+      id: initialPlayer.id,
+      name: initialPlayer.name,
+      position: initialPlayer.boardPosition ?? 0,
+      color: playerColor,
+      isCurrentTurn: true
+    }
+  ]);
+  const [currentTurnIndex, setCurrentTurnIndex] = useState<number>(0);
+  const [networkActiveCard, setNetworkActiveCard] = useState<any>(null);
+  const [logs, setLogs] = useState<string[]>([
+    `[Сессия] Комната #${roomId}`,
+    `[Режим ЗП] ${settings?.autoPayday ? 'Автоматическое начисление' : 'Ручное получение (кнопка)'}`
+  ]);
+
+  // Модальные окна для ходящего игрока
+  const [activeDealModal, setActiveDealModal] = useState<boolean>(false);
+  const [activeDoodadCard, setActiveDoodadCard] = useState<DoodadCard | null>(null);
+  const [activeMarketCard, setActiveMarketCard] = useState<MarketCard | null>(null);
+  const [showCharityModal, setShowCharityModal] = useState<boolean>(false);
+  const [showDownturnModal, setShowDownturnModal] = useState<boolean>(false);
+  const [showBankModal, setShowBankModal] = useState<boolean>(false);
+  const [showVictoryModal, setShowVictoryModal] = useState<boolean>(false);
+  const [showBabyModal, setShowBabyModal] = useState<boolean>(false);
+
+  const activeCurrentPlayer = roomPlayers[currentTurnIndex] || roomPlayers[0];
+  const isMyTurn = activeCurrentPlayer?.id === player.id;
+
+  // Автоматический переход хода
+  const finishTurnAction = () => {
+    setActiveDealModal(false);
+    setActiveDoodadCard(null);
+    setActiveMarketCard(null);
+    setShowCharityModal(false);
+    setShowDownturnModal(false);
+    setShowBabyModal(false);
+    setHasRolledThisTurn(false);
+    setDiceValue(null);
+    setPendingPayday(0);
+
+    socket.emit('player_close_card', { roomId, autoEndTurn: true });
+  };
+
+  // Подключение к сокету и слушатели
+  useEffect(() => {
+    socket.emit('join_room', {
+      roomId,
+      playerProfile: {
+        id: player.id,
+        userId: player.userId,
+        name: player.name,
+        color: playerColor,
+        boardPosition: player.boardPosition ?? 0,
+        cash: player.cash,
+        financials: player.financials,
+        assets: player.assets,
+        profession: player.profession
+      }
+    });
+
+    socket.on('deal_trade_offered', (offer) => {
+      if (offer.toUserId === player.userId) {
+        setIncomingTradeOffer(offer);
+      } else if (offer.fromUserId === player.userId) {
+        setTradeWaitingMessage(`Ожидание ответа от игрока...`);
+      }
+    });
+
+    socket.on('deal_trade_closed', () => {
+      setIncomingTradeOffer(null);
+      setTradeWaitingMessage('');
+    });
+
+    socket.on('sync_game_state', (roomData) => {
+      if (roomData.players) {
+        setRoomPlayers(
+          roomData.players.map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            position: p.position ?? p.boardPosition ?? 0,
+            color: p.color,
+            isCurrentTurn: p.isCurrentTurn
+          }))
+        );
+
+        const me = roomData.players.find((p: any) => p.userId === player.userId);
+        if (me) {
+          setPlayer((prev) => ({
+            ...prev,
+            cash: me.cash,
+            boardPosition: me.position ?? prev.boardPosition,
+            financials: me.financials ?? prev.financials,
+            assets: me.assets ?? prev.assets
+          }));
+        }
+      }
+
+      if (typeof roomData.currentTurnIndex === 'number') {
+        setCurrentTurnIndex(roomData.currentTurnIndex);
+      }
+
+      if (roomData.logs) {
+        setLogs(roomData.logs);
+      }
+
+      if (!roomData.activeCardData) {
+        setIsMarketDismissed(false);
+      }
+
+      setNetworkActiveCard(roomData.activeCardData || null);
+    });
+
+    return () => {
+      socket.off('sync_game_state');
+      socket.off('deal_trade_offered');
+      socket.off('deal_trade_closed');
+    };
+  }, [roomId, player.userId]);
+
+  const addLog = (msg: string) => {
+    setLogs((prev) => [msg, ...prev]);
+  };
+
+  const checkVictory = (passive: number, expenses: number) => {
+    if (passive > expenses && !showVictoryModal) {
+      setShowVictoryModal(true);
+      addLog(`🏆 ПОБЕДА! Пассивный доход ($${passive}) превысил расходы ($${expenses})!`);
+    }
+  };
+
+  // Ручное получение зарплаты
+  const handleClaimManualPayday = () => {
+    if (pendingPayday > 0) {
+      const claimedAmount = pendingPayday;
+      setPendingPayday(0);
+
+      socket.emit('player_update_financials', {
+        roomId,
+        updatedPlayer: {
+          userId: player.userId,
+          cash: player.cash + claimedAmount
+        },
+        logMessage: `💰 ${player.name} забрал чек Payday (+${claimedAmount.toLocaleString()}$)`
+      });
+    }
+  };
+
+  // Завершение хода вручную
+  const handleEndTurn = () => {
+    if (pendingPayday > 0) {
+      addLog(`❌ Вы забыли забрать ЗП! Неполученные +${pendingPayday.toLocaleString()}$ сгорели.`);
+      setPendingPayday(0);
+    }
+
+    setHasRolledThisTurn(false);
+    setDiceValue(null);
+    socket.emit('player_end_turn', { roomId });
+  };
+
+  // Бросок кубика
+  const handleRollDice = () => {
+    if (!isMyTurn || hasRolledThisTurn) return;
+
+    if (skipTurnsLeft > 0) {
+      setSkipTurnsLeft((prev) => prev - 1);
+      addLog(`🛑 Вы отбываете увольнение. Пропущен ход (Осталось: ${skipTurnsLeft - 1})`);
+      handleEndTurn();
+      return;
+    }
+
+    setIsRolling(true);
+
+    setTimeout(() => {
+      const dice1 = Math.floor(Math.random() * 6) + 1;
+      const dice2 = charityTurnsLeft > 0 ? Math.floor(Math.random() * 6) + 1 : 0;
+      const totalDice = dice1 + dice2;
+
+      if (charityTurnsLeft > 0) {
+        setCharityTurnsLeft((prev) => prev - 1);
+      }
+
+      setDiceValue(totalDice);
+      setIsRolling(false);
+      setHasRolledThisTurn(true);
+
+      const oldPos = player.boardPosition ?? 0;
+      const newPos = (oldPos + totalDice) % 24;
+      const currentTile = BOARD_TILES[newPos];
+
+      // Проверяем прохождение любых клеток PAYDAY по пути броска
+      let passedPaydayCount = 0;
+      for (let step = 1; step <= totalDice; step++) {
+        const stepPos = (oldPos + step) % 24;
+        if (BOARD_TILES[stepPos]?.type === 'PAYDAY') {
+          passedPaydayCount++;
+        }
+      }
+
+      let paydayEarned = 0;
+      if (passedPaydayCount > 0) {
+        const totalCashflowEarned = player.financials.monthlyCashflow * passedPaydayCount;
+        if (settings?.autoPayday) {
+          paydayEarned = totalCashflowEarned;
+        } else {
+          setPendingPayday(totalCashflowEarned);
+          addLog(`⚠️ Пройдена клетка «День получки»! Нажмите «ЗАБРАТЬ ЗАРПЛАТУ», пока не завершен ход.`);
+        }
+      }
+
+      let openedCardData: any = { cardType: currentTile.title };
+
+      if (currentTile.type === 'DEAL') {
+        setActiveDealModal(true);
+        openedCardData = { title: 'Выбирает вариант сделки', description: 'Игрок просматривает список сделок и оценивает доходность.' };
+      } else if (currentTile.type === 'DOODAD') {
+        const randomDoodad = DOODADS[Math.floor(Math.random() * DOODADS.length)];
+        setActiveDoodadCard(randomDoodad);
+        openedCardData = randomDoodad;
+      } else if (currentTile.type === 'MARKET') {
+        const randomMarket = MARKET_CARDS[Math.floor(Math.random() * MARKET_CARDS.length)];
+        setActiveMarketCard(randomMarket);
+        setIsMarketDismissed(false);
+        openedCardData = randomMarket;
+      } else if (currentTile.type === 'CHARITY') {
+        setShowCharityModal(true);
+        openedCardData = { title: 'Благотворительность', description: 'Игрок решает, пожертвовать ли 10% дохода.' };
+      } else if (currentTile.type === 'DOWNTURN') {
+        setShowDownturnModal(true);
+        openedCardData = { title: 'Увольнение с работы', description: 'Игрок попал под сокращение и пропускает 2 хода.' };
+      } else if (currentTile.type === 'BABY') {
+        setShowBabyModal(true);
+        openedCardData = { title: 'Рождение ребенка', description: 'У игрока пополнение в семье!' };
+      } else if (currentTile.type === 'PAYDAY') {
+        // Если приземлился точно на Payday без модалки — ход переходит через 1.2 сек
+        setTimeout(() => {
+          handleEndTurn();
+        }, 1200);
+      }
+
+      socket.emit('player_roll_dice', {
+        roomId,
+        diceValue: totalDice,
+        newPosition: newPos,
+        paydayAmount: paydayEarned,
+        currentTile,
+        cardData: openedCardData
+      });
+    }, 400);
+  };
+
+  const handleBuyDeal = (deal: DealCard, stockCount?: number, borrowedAmount: number = 0) => {
+    const isStock = deal.type === 'STOCK';
+    const payment = isStock ? deal.cost * (stockCount || 100) : deal.downPayment;
+    const addedCashflow = deal.cashflow;
+
+    const newAsset: Asset = {
+      id: 'ast_' + Date.now(),
+      title: isStock ? `${deal.symbol} (${stockCount} шт)` : deal.title,
+      type: deal.type,
+      cost: isStock ? payment : deal.cost,
+      cashflow: addedCashflow,
+      downPayment: payment,
+      sharesCount: isStock ? stockCount : undefined,
+      mortgage: deal.mortgage
+    };
+
+    const addedLoanPayment = Math.round(borrowedAmount * 0.1);
+    const newDebt = (player.bankDebt || 0) + borrowedAmount;
+    const newBankPayment = player.financials.bankLoanPayment + addedLoanPayment;
+    const newTotalExpenses = player.financials.totalExpenses + addedLoanPayment;
+
+    const updatedCash = player.cash + borrowedAmount - payment;
+    const updatedPassive = player.financials.passiveIncome + addedCashflow;
+    const updatedTotalIncome = player.financials.salary + updatedPassive;
+    const updatedMonthlyCashflow = updatedTotalIncome - newTotalExpenses;
+
+    socket.emit('player_update_financials', {
+      roomId,
+      updatedPlayer: {
+        userId: player.userId,
+        cash: updatedCash,
+        bankDebt: newDebt,
+        assets: [...player.assets, newAsset],
+        financials: {
+          ...player.financials,
+          passiveIncome: updatedPassive,
+          totalIncome: updatedTotalIncome,
+          bankLoanPayment: newBankPayment,
+          totalExpenses: newTotalExpenses,
+          monthlyCashflow: updatedMonthlyCashflow
+        }
+      },
+      logMessage: `✅ ${player.name} купил: «${deal.title}» (+${addedCashflow}$/мес)`
+    });
+
+    checkVictory(updatedPassive, newTotalExpenses);
+    finishTurnAction();
+  };
+
+  const handleSellDealToPlayer = (deal: DealCard, buyer: BoardPlayer, fee: number) => {
+    socket.emit('propose_deal_to_player', {
+      roomId,
+      fromPlayer: player,
+      toUserId: buyer.id.replace('p_', ''),
+      deal,
+      fee
+    });
+    finishTurnAction();
+  };
+
+  const handleAcceptTrade = () => {
+    socket.emit('respond_deal_trade', {
+      roomId,
+      accepted: true,
+      tradeOffer: incomingTradeOffer
+    });
+    setIncomingTradeOffer(null);
+  };
+
+  const handleDeclineTrade = () => {
+    socket.emit('respond_deal_trade', {
+      roomId,
+      accepted: false,
+      tradeOffer: incomingTradeOffer
+    });
+    setIncomingTradeOffer(null);
+  };
+
+  const handleSellAsset = (asset: Asset, offerPrice: number) => {
+    const isStock = asset.type === 'STOCK';
+    const mortgage = asset.mortgage || 0;
+    const netPayout = isStock ? offerPrice * (asset.sharesCount || 1) : offerPrice - mortgage;
+
+    const updatedPassive = player.financials.passiveIncome - asset.cashflow;
+    const updatedTotalIncome = player.financials.salary + updatedPassive;
+    const updatedMonthlyCashflow = updatedTotalIncome - player.financials.totalExpenses;
+
+    socket.emit('player_update_financials', {
+      roomId,
+      updatedPlayer: {
+        userId: player.userId,
+        cash: player.cash + netPayout,
+        assets: player.assets.filter((a) => a.id !== asset.id),
+        financials: {
+          ...player.financials,
+          passiveIncome: updatedPassive,
+          totalIncome: updatedTotalIncome,
+          monthlyCashflow: updatedMonthlyCashflow
+        }
+      },
+      logMessage: `🏦 ${player.name} продал «${asset.title}» (+${netPayout.toLocaleString()}$)`
+    });
+
+    setIsMarketDismissed(true);
+    setActiveMarketCard(null);
+    if (isMyTurn) finishTurnAction();
+  };
+
+  const handleExecuteSplit = (symbol: string, ratio: number) => {
+    const newAssets = player.assets.map((a) => {
+      if (a.type === 'STOCK' && a.title.includes(symbol)) {
+        const newCount = (a.sharesCount || 0) * ratio;
+        return { ...a, sharesCount: newCount, title: `${symbol} (${newCount} шт)` };
+      }
+      return a;
+    });
+
+    socket.emit('player_update_financials', {
+      roomId,
+      updatedPlayer: {
+        userId: player.userId,
+        assets: newAssets
+      },
+      logMessage: `✂️ ${player.name}: Сплит акций ${symbol} (x${ratio})!`
+    });
+
+    setIsMarketDismissed(true);
+    setActiveMarketCard(null);
+    if (isMyTurn) finishTurnAction();
+  };
+
+  const handleConfirmBaby = () => {
+    if (player.financials.childCount < 3) {
+      const expensePerChild = player.profession.childExpensePerCount;
+      const newChildCount = player.financials.childCount + 1;
+      const newTotalExpenses = player.financials.totalExpenses + expensePerChild;
+      const newMonthlyCashflow = player.financials.totalIncome - newTotalExpenses;
+
+      socket.emit('player_update_financials', {
+        roomId,
+        updatedPlayer: {
+          userId: player.userId,
+          financials: {
+            ...player.financials,
+            childCount: newChildCount,
+            totalExpenses: newTotalExpenses,
+            monthlyCashflow: newMonthlyCashflow
+          }
+        },
+        logMessage: `👶 У ${player.name} родился ребенок (#${newChildCount}/3).`
+      });
+    }
+    finishTurnAction();
+  };
+
+  const handleDonateCharity = (amount: number) => {
+    socket.emit('player_update_financials', {
+      roomId,
+      updatedPlayer: {
+        userId: player.userId,
+        cash: player.cash - amount
+      },
+      logMessage: `🤝 ${player.name} пожертвовал ${amount.toLocaleString()}$ на благотворительность!`
+    });
+    setCharityTurnsLeft(3);
+    finishTurnAction();
+  };
+
+  const handleDownturnConfirm = () => {
+    const cost = player.financials.totalExpenses;
+    socket.emit('player_update_financials', {
+      roomId,
+      updatedPlayer: {
+        userId: player.userId,
+        cash: player.cash - cost
+      },
+      logMessage: `🛑 ${player.name} уволен (-${cost.toLocaleString()}$) и пропускает 2 хода.`
+    });
+    setSkipTurnsLeft(2);
+    finishTurnAction();
+  };
+
+  const handleTakeLoan = (amount: number) => {
+    const addedPayment = Math.round(amount * 0.1);
+    const newDebt = (player.bankDebt || 0) + amount;
+    const newBankPayment = player.financials.bankLoanPayment + addedPayment;
+    const newTotalExpenses = player.financials.totalExpenses + addedPayment;
+    const newMonthlyCashflow = player.financials.totalIncome - newTotalExpenses;
+
+    socket.emit('player_update_financials', {
+      roomId,
+      updatedPlayer: {
+        userId: player.userId,
+        cash: player.cash + amount,
+        bankDebt: newDebt,
+        financials: {
+          ...player.financials,
+          bankLoanPayment: newBankPayment,
+          totalExpenses: newTotalExpenses,
+          monthlyCashflow: newMonthlyCashflow
+        }
+      },
+      logMessage: `🏦 ${player.name} взял кредит: +${amount.toLocaleString()}$`
+    });
+  };
+
+  const handlePayLoan = (amount: number) => {
+    const reducedPayment = Math.round(amount * 0.1);
+    const newDebt = Math.max(0, (player.bankDebt || 0) - amount);
+    const newBankPayment = Math.max(0, player.financials.bankLoanPayment - reducedPayment);
+    const newTotalExpenses = player.financials.totalExpenses - reducedPayment;
+    const newMonthlyCashflow = player.financials.totalIncome - newTotalExpenses;
+
+    socket.emit('player_update_financials', {
+      roomId,
+      updatedPlayer: {
+        userId: player.userId,
+        cash: player.cash - amount,
+        bankDebt: newDebt,
+        financials: {
+          ...player.financials,
+          bankLoanPayment: newBankPayment,
+          totalExpenses: newTotalExpenses,
+          monthlyCashflow: newMonthlyCashflow
+        }
+      },
+      logMessage: `✂️ ${player.name} погасил займ: -${amount.toLocaleString()}$`
+    });
+  };
+
+  const handlePayOffLiability = (
+    type: 'CREDIT_CARD' | 'CAR_LOAN' | 'HOME_MORTGAGE',
+    cost: number,
+    paymentReduction: number
+  ) => {
+    const newExpenses = player.financials.totalExpenses - paymentReduction;
+    const newCashflow = player.financials.totalIncome - newExpenses;
+    const updatedProfession = { ...player.profession };
+    const updatedFinancials = {
+      ...player.financials,
+      totalExpenses: newExpenses,
+      monthlyCashflow: newCashflow
+    };
+
+    if (type === 'CREDIT_CARD') {
+      updatedProfession.creditCardDebt = 0;
+      updatedFinancials.creditCardPayment = 0;
+    } else if (type === 'CAR_LOAN') {
+      updatedProfession.carDebt = 0;
+      updatedFinancials.carLoanPayment = 0;
+    } else if (type === 'HOME_MORTGAGE') {
+      updatedProfession.homeDebt = 0;
+      updatedFinancials.homeMortgagePayment = 0;
+    }
+
+    socket.emit('player_update_financials', {
+      roomId,
+      updatedPlayer: {
+        userId: player.userId,
+        cash: player.cash - cost,
+        profession: updatedProfession,
+        financials: updatedFinancials
+      },
+      logMessage: `🎉 ${player.name} погасил стартовый пассив (-${cost.toLocaleString()}$)`
+    });
+  };
+
+  const handleLiquidateAsset = (asset: Asset) => {
+    const liquidationValue = Math.round(asset.downPayment * 0.5);
+    const updatedPassive = Math.max(0, player.financials.passiveIncome - asset.cashflow);
+    const updatedTotalIncome = player.financials.salary + updatedPassive;
+    const updatedMonthlyCashflow = updatedTotalIncome - player.financials.totalExpenses;
+
+    socket.emit('player_update_financials', {
+      roomId,
+      updatedPlayer: {
+        userId: player.userId,
+        cash: player.cash + liquidationValue,
+        assets: player.assets.filter((a) => a.id !== asset.id),
+        financials: {
+          ...player.financials,
+          passiveIncome: updatedPassive,
+          totalIncome: updatedTotalIncome,
+          monthlyCashflow: updatedMonthlyCashflow
+        }
+      },
+      logMessage: `🚨 ${player.name} ликвидировал актив «${asset.title}» за +${liquidationValue}$`
+    });
+  };
+
+  const handleDeclareBankruptcy = () => {
+    const reducedDebt = Math.round((player.bankDebt || 0) * 0.5);
+    const reducedBankPayment = Math.round(player.financials.bankLoanPayment * 0.5);
+    const newTotalExpenses = player.financials.totalExpenses - reducedBankPayment;
+    const newMonthlyCashflow = player.financials.salary - newTotalExpenses;
+
+    socket.emit('player_update_financials', {
+      roomId,
+      updatedPlayer: {
+        userId: player.userId,
+        cash: 500,
+        bankDebt: reducedDebt,
+        assets: [],
+        financials: {
+          ...player.financials,
+          passiveIncome: 0,
+          totalIncome: player.financials.salary,
+          bankLoanPayment: player.financials.bankLoanPayment - reducedBankPayment,
+          totalExpenses: newTotalExpenses,
+          monthlyCashflow: newMonthlyCashflow
+        }
+      },
+      logMessage: `🛑 ${player.name} ОБЪЯВИЛ БАНКРОТСТВО: списание 50%, пропуск 3 ходов.`
+    });
+
+    setSkipTurnsLeft(3);
+    finishTurnAction();
+  };
+
+  return (
+    <div className="min-h-screen bg-[#130620] text-slate-100 flex flex-col">
+      {/* Баннер оповещения о смене активного игрока */}
+      <TurnNotification
+        playerName={activeCurrentPlayer?.name || ''}
+        isMyTurn={isMyTurn}
+      />
+
+      <header className="bg-[#1f0a33] border-b border-purple-900/50 px-6 py-2.5 flex items-center justify-between shadow-lg">
+        <div className="flex items-center space-x-3">
+          <div className="w-7 h-7 rounded-lg bg-amber-400 flex items-center justify-center font-black text-slate-950 text-base">
+            $
+          </div>
+          <h1 className="text-base font-extrabold tracking-wide text-amber-300">CASHFLOW ONLINE</h1>
+          <span className="text-[10px] font-mono bg-purple-950 border border-purple-700/60 px-2 py-0.5 rounded-lg text-purple-300">
+            #{roomId}
+          </span>
+        </div>
+
+        <div className="flex items-center space-x-3">
+          <div className="text-xs font-bold px-3 py-1 rounded-xl bg-slate-900 border border-slate-700 flex items-center space-x-2">
+            <span className="text-slate-400">Сейчас ходит:</span>
+            <span className="font-mono text-amber-400">{activeCurrentPlayer?.name || 'Ожидание...'}</span>
+          </div>
+
+          <button
+            onClick={() => setShowBankModal(true)}
+            className="bg-emerald-500/20 border border-emerald-500/40 hover:bg-emerald-500/30 text-emerald-400 font-bold px-3 py-1 rounded-xl text-xs transition cursor-pointer flex items-center space-x-1"
+          >
+            <span>🏦</span>
+            <span>Банк / Долги</span>
+          </button>
+
+          <button
+            onClick={onRestart}
+            className="text-xs text-slate-400 hover:text-rose-400 transition cursor-pointer"
+          >
+            Выйти в меню
+          </button>
+        </div>
+      </header>
+
+      <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 p-3 w-full items-stretch relative">
+        <section className="lg:col-span-8 xl:col-span-9 flex">
+          <GameBoard
+            players={roomPlayers}
+            activePlayerId={activeCurrentPlayer?.id}
+          />
+        </section>
+
+        <section className="lg:col-span-4 xl:col-span-3 flex">
+          <FinancialStatementPanel
+            player={player}
+            playerColor={playerColor}
+            logs={logs}
+            diceValue={diceValue}
+            isRolling={isRolling}
+            onRollDice={handleRollDice}
+            isMyTurn={isMyTurn}
+            hasRolledThisTurn={hasRolledThisTurn}
+            onEndTurn={handleEndTurn}
+          />
+        </section>
+
+        {/* Плавающая кнопка ручного получения зарплаты */}
+        {pendingPayday > 0 && isMyTurn && (
+          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-40 animate-bounce">
+            <button
+              onClick={handleClaimManualPayday}
+              className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm px-6 py-3.5 rounded-2xl shadow-2xl border-2 border-white flex items-center space-x-2 cursor-pointer transition transform active:scale-95"
+            >
+              <span className="text-lg">💰</span>
+              <span>ЗАБРАТЬ ЗАРПЛАТУ (+{pendingPayday.toLocaleString()} $)</span>
+            </button>
+          </div>
+        )}
+      </main>
+
+      {/* 1. КАРТОЧКА РЫНКА (ОТКРЫВАЕТСЯ ДЛЯ ВСЕХ ИГРОКОВ ОДНОВРЕМЕННО) */}
+      {!isMarketDismissed && (activeMarketCard || (networkActiveCard && (networkActiveCard.cardType === 'Рынок' || networkActiveCard.targetType === 'SPLIT' || networkActiveCard.offerPrice || networkActiveCard.targetType === 'STOCK' || networkActiveCard.targetType === 'REAL_ESTATE'))) && (
+        <MarketModal
+          card={activeMarketCard || networkActiveCard}
+          playerAssets={player.assets}
+          onSellAsset={handleSellAsset}
+          onExecuteSplit={handleExecuteSplit}
+          onPass={() => {
+            setActiveMarketCard(null);
+            setIsMarketDismissed(true);
+            if (isMyTurn) finishTurnAction();
+          }}
+        />
+      )}
+
+      {/* 2. ОКНО НАБЛЮДАТЕЛЯ ДЛЯ ОСТАЛЬНЫХ ТИПОВ КАРТОЧЕК */}
+      {!isMyTurn && networkActiveCard && !networkActiveCard.offerPrice && networkActiveCard.cardType !== 'Рынок' && !networkActiveCard.targetType && (
+        <SpectatorCardModal cardData={networkActiveCard} />
+      )}
+
+      {/* 3. МОДАЛЬНЫЕ ОКНА ДЛЯ ХОДЯЩЕГО ИГРОКА */}
+      {isMyTurn && activeDealModal && (
+        <DealModal
+          roomId={roomId}
+          playerCash={player.cash}
+          monthlyCashflow={player.financials.monthlyCashflow}
+          otherPlayers={roomPlayers.filter((p) => p.id !== player.id)}
+          onBuy={handleBuyDeal}
+          onSellToPlayer={handleSellDealToPlayer}
+          onPass={finishTurnAction}
+        />
+      )}
+
+      {isMyTurn && activeDoodadCard && (
+        <DoodadModal
+          card={activeDoodadCard}
+          playerCash={player.cash}
+          onPay={(amt) => {
+            socket.emit('player_update_financials', {
+              roomId,
+              updatedPlayer: {
+                userId: player.userId,
+                cash: player.cash - amt
+              },
+              logMessage: `💸 ${player.name} оплатил расход: -${amt.toLocaleString()}$`
+            });
+            finishTurnAction();
+          }}
+        />
+      )}
+
+      {isMyTurn && showCharityModal && (
+        <CharityModal
+          totalIncome={player.financials.totalIncome}
+          playerCash={player.cash}
+          onDonate={handleDonateCharity}
+          onPass={finishTurnAction}
+        />
+      )}
+
+      {isMyTurn && showDownturnModal && (
+        <DownturnModal
+          totalExpenses={player.financials.totalExpenses}
+          onConfirm={handleDownturnConfirm}
+        />
+      )}
+
+      {showBankModal && (
+        <BankModal
+          player={player}
+          onTakeLoan={handleTakeLoan}
+          onPayLoan={handlePayLoan}
+          onPayOffLiability={handlePayOffLiability}
+          onClose={() => setShowBankModal(false)}
+        />
+      )}
+
+      {isMyTurn && showBabyModal && (
+        <BabyModal
+          childCount={player.financials.childCount}
+          childExpense={player.profession.childExpensePerCount}
+          onConfirm={handleConfirmBaby}
+        />
+      )}
+
+      {showVictoryModal && (
+        <VictoryModal
+          player={player}
+          onContinue={() => setShowVictoryModal(false)}
+        />
+      )}
+
+      {player.cash < 0 && (
+        <BankruptcyModal
+          player={player}
+          deficit={Math.abs(player.cash)}
+          onLiquidateAsset={handleLiquidateAsset}
+          onDeclareBankruptcy={handleDeclareBankruptcy}
+        />
+      )}
+
+      {/* Окно подтверждения покупки сделки у покупателя */}
+      {incomingTradeOffer && (
+        <DealTradeIncomingModal
+          tradeOffer={incomingTradeOffer}
+          playerCash={player.cash}
+          onAccept={handleAcceptTrade}
+          onDecline={handleDeclineTrade}
+        />
+      )}
+
+      {/* Индикатор ожидания для продавца */}
+      {tradeWaitingMessage && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-amber-400 text-slate-950 font-black px-6 py-2.5 rounded-2xl shadow-xl animate-pulse text-xs">
+          ⏳ {tradeWaitingMessage}
+        </div>
+      )}
+    </div>
+  );
+};
