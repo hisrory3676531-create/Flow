@@ -4,7 +4,19 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST']
+}));
+
+// Базовый эндпоинт для проверки активности сервера в браузере
+app.get('/', (req, res) => {
+  res.json({
+    status: 'online',
+    service: 'Cashflow Multiplayer Backend',
+    activeRooms: rooms.size
+  });
+});
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
@@ -25,17 +37,17 @@ const getPublicRooms = () => {
       roomId: id,
       name: r.name,
       hostName: r.hostName,
-      playersCount: r.players.length,
-      maxPlayers: r.maxPlayers,
-      autoPayday: r.autoPayday,
-      gameStarted: r.gameStarted
+      playersCount: r.players ? r.players.length : 0,
+      maxPlayers: r.maxPlayers || 4,
+      autoPayday: r.autoPayday ?? true,
+      gameStarted: r.gameStarted || false
     });
   }
   return list;
 };
 
 const advanceTurn = (room) => {
-  if (!room || room.players.length === 0) return;
+  if (!room || !room.players || room.players.length === 0) return;
   room.activeCardData = null;
   room.currentTurnIndex = (room.currentTurnIndex + 1) % room.players.length;
   room.players.forEach((p, idx) => {
@@ -47,6 +59,7 @@ const advanceTurn = (room) => {
 };
 
 io.on('connection', (socket) => {
+  // Отправляем список комнат сразу при подключении сокета
   socket.emit('rooms_list', getPublicRooms());
 
   socket.on('get_rooms', () => {
@@ -67,7 +80,6 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // Отменяем таймер удаления, если он тикал
     if (disconnectTimeouts.has(userId)) {
       clearTimeout(disconnectTimeouts.get(userId));
       disconnectTimeouts.delete(userId);
@@ -98,7 +110,7 @@ io.on('connection', (socket) => {
       name: roomName || `Комната #${roomId}`,
       hostId: hostPlayer.userId,
       hostName: hostPlayer.name,
-      maxPlayers: maxPlayers || 4,
+      maxPlayers: Number(maxPlayers) || 4,
       autoPayday: autoPayday ?? true,
       gameStarted: false,
       currentTurnIndex: 0,
@@ -115,6 +127,7 @@ io.on('connection', (socket) => {
       logs: [`[Лобби] Создана комната «${roomName || roomId}»`]
     });
 
+    // Оповещаем всех клиентов на сервере о новой комнате
     io.emit('rooms_list', getPublicRooms());
     io.to(roomId).emit('sync_room_lobby', rooms.get(roomId));
   });
@@ -130,7 +143,6 @@ io.on('connection', (socket) => {
     const existingIdx = room.players.findIndex((p) => p.userId === playerProfile.userId);
 
     if (existingIdx !== -1) {
-      // Игрок уже был в комнате
       if (disconnectTimeouts.has(playerProfile.userId)) {
         clearTimeout(disconnectTimeouts.get(playerProfile.userId));
         disconnectTimeouts.delete(playerProfile.userId);
@@ -372,7 +384,7 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('sync_game_state', room);
   });
 
-  // Отключение игрока с 2-минутным таймером ожидания
+  // Отключение игрока с таймером ожидания
   socket.on('disconnect', () => {
     for (const [roomId, room] of rooms.entries()) {
       const disconnectedPlayer = room.players.find((p) => p.socketId === socket.id);
@@ -382,11 +394,10 @@ io.on('connection', (socket) => {
         io.to(roomId).emit('sync_game_state', room);
 
         const timeoutId = setTimeout(() => {
-          // Если за 2 минуты не вернулся — удаляем
           const currentRoom = rooms.get(roomId);
           if (currentRoom) {
             currentRoom.players = currentRoom.players.filter((p) => p.userId !== disconnectedPlayer.userId);
-            currentRoom.logs.unshift(`🚪 ${disconnectedPlayer.name} исключен из-за таймаута (2 мин).`);
+            currentRoom.logs.unshift(`🚪 ${disconnectedPlayer.name} исключен из-за таймаута.`);
 
             if (currentRoom.players.length === 0) {
               rooms.delete(roomId);
@@ -397,7 +408,7 @@ io.on('connection', (socket) => {
             io.emit('rooms_list', getPublicRooms());
           }
           disconnectTimeouts.delete(disconnectedPlayer.userId);
-        }, 120 * 1000); // 120 секунд
+        }, 120 * 1000);
 
         disconnectTimeouts.set(disconnectedPlayer.userId, timeoutId);
         break;
@@ -406,7 +417,8 @@ io.on('connection', (socket) => {
   });
 });
 
-const PORT = 3001;
-httpServer.listen(PORT, () => {
-  console.log(`🚀 Cashflow Server запущен на http://localhost:${PORT}`);
+// Render передает порт через process.env.PORT
+const PORT = process.env.PORT || 3001;
+httpServer.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Cashflow Server запущен на порту ${PORT}`);
 });
