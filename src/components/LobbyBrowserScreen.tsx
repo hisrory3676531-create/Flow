@@ -34,14 +34,23 @@ export const LobbyBrowserScreen: FC<LobbyBrowserScreenProps> = ({
   const [customRoomId, setCustomRoomId] = useState<string>('');
 
   useEffect(() => {
+    // Первичный запрос
     socket.emit('get_rooms');
 
-    socket.on('rooms_list', (list: RoomSummary[]) => {
-      setRooms(list);
-    });
+    const handleRoomsList = (list: RoomSummary[]) => {
+      setRooms(list || []);
+    };
+
+    socket.on('rooms_list', handleRoomsList);
+
+    // Периодическое обновление каждые 1.5 секунды
+    const interval = setInterval(() => {
+      socket.emit('get_rooms');
+    }, 1500);
 
     return () => {
-      socket.off('rooms_list');
+      socket.off('rooms_list', handleRoomsList);
+      clearInterval(interval);
     };
   }, []);
 
