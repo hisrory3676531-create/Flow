@@ -3,6 +3,7 @@ import { io } from 'socket.io-client';
 const BACKEND_URL = 'https://flow-5ty0.onrender.com';
 
 export const socket = io(BACKEND_URL, {
+  path: '/socket.io/',
   transports: ['polling', 'websocket'],
   upgrade: true,
   autoConnect: true,
@@ -14,7 +15,7 @@ export const socket = io(BACKEND_URL, {
   withCredentials: false
 });
 
-// Автоматический переконнект при выходе телефона из сна / переключении вкладок
+// Автоматический переконнект при выходе из сна или смене сети
 if (typeof window !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && !socket.connected) {
