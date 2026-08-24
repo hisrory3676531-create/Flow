@@ -69,6 +69,17 @@ io.on('connection', (socket) => {
     socket.emit('rooms_list', getPublicRooms());
   });
 
+  // Запрос актуального состояния конкретного лобби (устраняет бесконечную загрузку)
+  socket.on('get_room_lobby_state', ({ roomId }) => {
+    const room = rooms.get(roomId);
+    if (room) {
+      socket.join(roomId);
+      socket.emit('sync_room_lobby', room);
+    } else {
+      socket.emit('error_message', 'Комната не найдена');
+    }
+  });
+
   socket.on('reconnect_session', ({ roomId, userId }) => {
     const room = rooms.get(roomId);
     if (!room) {

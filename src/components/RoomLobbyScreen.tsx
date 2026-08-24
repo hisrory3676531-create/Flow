@@ -27,30 +27,6 @@ export const RoomLobbyScreen: FC<RoomLobbyScreenProps> = ({
   const [errorMessage, setErrorMessage] = useState<string>('');
 
   useEffect(() => {
-    // 1. Гарантируем отправку запроса на вход при загрузке компонента
-    const emitJoin = () => {
-      socket.emit('join_room', {
-        roomId,
-        playerProfile: {
-          id: 'p_' + userId,
-          userId,
-          name: userName,
-          color: null,
-          profession: null
-        }
-      });
-    };
-
-    if (socket.connected) {
-      emitJoin();
-    } else {
-      socket.connect();
-    }
-
-    const handleConnect = () => {
-      emitJoin();
-    };
-
     const handleSyncLobby = (data: any) => {
       if (data && data.roomId === roomId) {
         setRoomData(data);
@@ -74,24 +50,46 @@ export const RoomLobbyScreen: FC<RoomLobbyScreenProps> = ({
       }, 2500);
     };
 
-    socket.on('connect', handleConnect);
     socket.on('sync_room_lobby', handleSyncLobby);
     socket.on('game_started', handleGameStarted);
     socket.on('error_message', handleError);
 
-    // Периодический опрос, если состояние лобби еще не получено
-    const checkInterval = setInterval(() => {
+    // Сразу запрашиваем актуальное состояние лобби и отправляем запрос на вход
+    const sendJoinAndSync = () => {
+      socket.emit('get_room_lobby_state', { roomId });
+      socket.emit('join_room', {
+        roomId,
+        playerProfile: {
+          id: 'p_' + userId,
+          userId,
+          name: userName,
+          color: null,
+          profession: null
+        }
+      });
+    };
+
+    if (socket.connected) {
+      sendJoinAndSync();
+    } else {
+      socket.connect();
+    }
+
+    socket.on('connect', sendJoinAndSync);
+
+    // Регулярный опрос, пока состояние комнаты не загружено
+    const interval = setInterval(() => {
       if (!roomData && socket.connected) {
-        emitJoin();
+        sendJoinAndSync();
       }
-    }, 1500);
+    }, 1200);
 
     return () => {
-      socket.off('connect', handleConnect);
       socket.off('sync_room_lobby', handleSyncLobby);
       socket.off('game_started', handleGameStarted);
       socket.off('error_message', handleError);
-      clearInterval(checkInterval);
+      socket.off('connect', sendJoinAndSync);
+      clearInterval(interval);
     };
   }, [roomId, userId, userName, roomData, onGameStarted, onLeave]);
 
