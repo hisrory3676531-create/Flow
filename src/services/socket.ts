@@ -4,7 +4,8 @@ const BACKEND_URL = 'https://flow-production-71b0.up.railway.app';
 
 export const socket = io(BACKEND_URL, {
   path: '/socket.io/',
-  transports: ['websocket', 'polling'],
+  transports: ['websocket'], // Оставляем только websocket
+  upgrade: false, // Отключаем попытки апгрейда с HTTP
   autoConnect: true,
   reconnection: true,
   reconnectionAttempts: Infinity,

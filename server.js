@@ -26,9 +26,10 @@ const io = new Server(httpServer, {
   path: '/socket.io/',
   cors: {
     origin: '*',
-    methods: ['GET', 'POST']
+    methods: ['GET', 'POST', 'OPTIONS'],
+    credentials: false // Railway иногда требует явного отключения
   },
-  transports: ['polling', 'websocket']
+  transports: ['websocket'] // Разрешаем только чистый WebSocket
 });
 
 // Хранилище комнат и таймеров
