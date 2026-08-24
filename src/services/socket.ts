@@ -1,21 +1,16 @@
 import { io } from 'socket.io-client';
 
-const BACKEND_URL = 'https://flow-5ty0.onrender.com';
+const BACKEND_URL = 'https://flow-production-71b0.up.railway.app';
 
 export const socket = io(BACKEND_URL, {
   path: '/socket.io/',
-  transports: ['polling', 'websocket'],
-  upgrade: true,
+  transports: ['websocket', 'polling'],
   autoConnect: true,
   reconnection: true,
   reconnectionAttempts: Infinity,
-  reconnectionDelay: 1000,
-  reconnectionDelayMax: 5000,
-  timeout: 45000,
-  withCredentials: false
+  reconnectionDelay: 1000
 });
 
-// Автоматический переконнект при выходе из сна или смене сети
 if (typeof window !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && !socket.connected) {

@@ -4,31 +4,36 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 
 const app = express();
+
+// Разрешаем любые кросс-доменные запросы
 app.use(cors({
   origin: '*',
-  methods: ['GET', 'POST']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
 
-// Базовый эндпоинт для проверки активности сервера в браузере
 app.get('/', (req, res) => {
-  res.json({
-    status: 'online',
-    service: 'Cashflow Multiplayer Backend',
-    activeRooms: rooms.size
-  });
+  res.send({ status: 'online', service: 'Cashflow Server' });
+});
+
+app.get('/api/rooms', (req, res) => {
+  res.json(getPublicRooms());
 });
 
 const httpServer = createServer(app);
+
+// Явно задаем path: '/socket.io/'
 const io = new Server(httpServer, {
+  path: '/socket.io/',
   cors: {
     origin: '*',
     methods: ['GET', 'POST']
-  }
+  },
+  transports: ['polling', 'websocket']
 });
 
-// Хранилище комнат и таймеров отключения
+// Хранилище комнат и таймеров
 const rooms = new Map();
-const disconnectTimeouts = new Map(); // key: userId -> timeoutId
+const disconnectTimeouts = new Map();
 
 const getPublicRooms = () => {
   const list = [];
@@ -59,14 +64,12 @@ const advanceTurn = (room) => {
 };
 
 io.on('connection', (socket) => {
-  // Отправляем список комнат сразу при подключении сокета
   socket.emit('rooms_list', getPublicRooms());
 
   socket.on('get_rooms', () => {
     socket.emit('rooms_list', getPublicRooms());
   });
 
-  // Восстановление сессии после перезагрузки
   socket.on('reconnect_session', ({ roomId, userId }) => {
     const room = rooms.get(roomId);
     if (!room) {
@@ -101,7 +104,6 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('sync_room_lobby', room);
   });
 
-  // Создание комнаты
   socket.on('create_room', ({ roomId, roomName, hostPlayer, maxPlayers, autoPayday }) => {
     socket.join(roomId);
 
@@ -127,12 +129,10 @@ io.on('connection', (socket) => {
       logs: [`[Лобби] Создана комната «${roomName || roomId}»`]
     });
 
-    // Оповещаем всех клиентов на сервере о новой комнате
     io.emit('rooms_list', getPublicRooms());
     io.to(roomId).emit('sync_room_lobby', rooms.get(roomId));
   });
 
-  // Вход в комнату
   socket.on('join_room', ({ roomId, playerProfile }) => {
     const room = rooms.get(roomId);
     if (!room) {
@@ -172,7 +172,6 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('sync_game_state', room);
   });
 
-  // Закрытие карточки
   socket.on('player_close_card', ({ roomId, autoEndTurn }) => {
     const room = rooms.get(roomId);
     if (!room) return;
@@ -384,7 +383,6 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('sync_game_state', room);
   });
 
-  // Отключение игрока с таймером ожидания
   socket.on('disconnect', () => {
     for (const [roomId, room] of rooms.entries()) {
       const disconnectedPlayer = room.players.find((p) => p.socketId === socket.id);
@@ -417,7 +415,6 @@ io.on('connection', (socket) => {
   });
 });
 
-// Render передает порт через process.env.PORT
 const PORT = process.env.PORT || 3001;
 httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Cashflow Server запущен на порту ${PORT}`);
