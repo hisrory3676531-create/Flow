@@ -5,32 +5,11 @@ import cors from 'cors';
 
 const app = express();
 
-// Разрешаем любые кросс-доменные запросы
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
-
-app.get('/', (req, res) => {
-  res.send({ status: 'online', service: 'Cashflow Server' });
-});
-
-app.get('/api/rooms', (req, res) => {
-  res.json(getPublicRooms());
-});
-
-const httpServer = createServer(app);
-
-// Явно задаем path: '/socket.io/'
-const io = new Server(httpServer, {
-  path: '/socket.io/',
-  cors: {
-    origin: '*',
-    methods: ['GET', 'POST', 'OPTIONS'],
-    credentials: false // Railway иногда требует явного отключения
-  },
-  transports: ['websocket'] // Разрешаем только чистый WebSocket
-});
+app.use(express.json());
 
 // Хранилище комнат и таймеров
 const rooms = new Map();
@@ -51,6 +30,25 @@ const getPublicRooms = () => {
   }
   return list;
 };
+
+app.get('/', (req, res) => {
+  res.json({ status: 'online', service: 'Cashflow Multiplayer Backend', activeRooms: rooms.size });
+});
+
+app.get('/api/rooms', (req, res) => {
+  res.json(getPublicRooms());
+});
+
+const httpServer = createServer(app);
+
+const io = new Server(httpServer, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST', 'OPTIONS']
+  },
+  transports: ['polling', 'websocket'],
+  allowEIO3: true
+});
 
 const advanceTurn = (room) => {
   if (!room || !room.players || room.players.length === 0) return;

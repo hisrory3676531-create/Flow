@@ -3,10 +3,7 @@ import { io } from 'socket.io-client';
 const BACKEND_URL = 'https://flow-production-71b0.up.railway.app';
 
 export const socket = io(BACKEND_URL, {
-  path: '/socket.io/',
-  transports: ['websocket'], // Оставляем только websocket
-  upgrade: false, // Отключаем попытки апгрейда с HTTP
-  autoConnect: true,
+  transports: ['polling', 'websocket'],
   reconnection: true,
   reconnectionAttempts: Infinity,
   reconnectionDelay: 1000
