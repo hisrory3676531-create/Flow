@@ -27,33 +27,85 @@ export const RoomLobbyScreen: FC<RoomLobbyScreenProps> = ({
   const [errorMessage, setErrorMessage] = useState<string>('');
 
   useEffect(() => {
-    socket.on('sync_room_lobby', (data) => {
-      setRoomData(data);
-      const me = data.players?.find((p: any) => p.userId === userId);
-      if (me?.color) setSelectedColor(me.color);
-      if (me?.profession) setSelectedProfession(me.profession);
-    });
+    // 1. Гарантируем отправку запроса на вход при загрузке компонента
+    const emitJoin = () => {
+      socket.emit('join_room', {
+        roomId,
+        playerProfile: {
+          id: 'p_' + userId,
+          userId,
+          name: userName,
+          color: null,
+          profession: null
+        }
+      });
+    };
 
-    socket.on('game_started', (data) => {
-      onGameStarted(data);
-    });
+    if (socket.connected) {
+      emitJoin();
+    } else {
+      socket.connect();
+    }
 
-    socket.on('error_message', (msg: string) => {
+    const handleConnect = () => {
+      emitJoin();
+    };
+
+    const handleSyncLobby = (data: any) => {
+      if (data && data.roomId === roomId) {
+        setRoomData(data);
+        const me = data.players?.find((p: any) => p.userId === userId);
+        if (me?.color) setSelectedColor(me.color);
+        if (me?.profession) setSelectedProfession(me.profession);
+      }
+    };
+
+    const handleGameStarted = (data: any) => {
+      if (data && data.roomId === roomId) {
+        onGameStarted(data);
+      }
+    };
+
+    const handleError = (msg: string) => {
       setErrorMessage(msg);
-      setTimeout(() => setErrorMessage(''), 3000);
-    });
+      setTimeout(() => {
+        setErrorMessage('');
+        onLeave();
+      }, 2500);
+    };
+
+    socket.on('connect', handleConnect);
+    socket.on('sync_room_lobby', handleSyncLobby);
+    socket.on('game_started', handleGameStarted);
+    socket.on('error_message', handleError);
+
+    // Периодический опрос, если состояние лобби еще не получено
+    const checkInterval = setInterval(() => {
+      if (!roomData && socket.connected) {
+        emitJoin();
+      }
+    }, 1500);
 
     return () => {
-      socket.off('sync_room_lobby');
-      socket.off('game_started');
-      socket.off('error_message');
+      socket.off('connect', handleConnect);
+      socket.off('sync_room_lobby', handleSyncLobby);
+      socket.off('game_started', handleGameStarted);
+      socket.off('error_message', handleError);
+      clearInterval(checkInterval);
     };
-  }, [roomId, userId, onGameStarted]);
+  }, [roomId, userId, userName, roomData, onGameStarted, onLeave]);
 
   if (!roomData) {
     return (
-      <div className="min-h-screen bg-[#130620] flex items-center justify-center text-amber-300 font-mono text-sm">
-        Подключение к лобби #{roomId}...
+      <div className="min-h-screen bg-[#130620] flex flex-col items-center justify-center p-4 space-y-4">
+        <div className="w-10 h-10 border-4 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-amber-300 font-mono text-sm tracking-wide">Подключение к лобби #{roomId}...</p>
+        <button
+          onClick={onLeave}
+          className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-xl text-xs font-bold transition mt-2 cursor-pointer"
+        >
+          ← Вернуться в список комнат
+        </button>
       </div>
     );
   }
@@ -61,12 +113,10 @@ export const RoomLobbyScreen: FC<RoomLobbyScreenProps> = ({
   const isHost = roomData.hostId === userId;
   const players = roomData.players || [];
 
-  // Занятые цвета
   const takenColorIds = players
     .filter((p: any) => p.userId !== userId && p.color)
     .map((p: any) => p.color.id);
 
-  // Занятые профессии
   const takenProfIds = players
     .filter((p: any) => p.userId !== userId && p.profession)
     .map((p: any) => p.profession.id);
@@ -80,7 +130,7 @@ export const RoomLobbyScreen: FC<RoomLobbyScreenProps> = ({
   const handlePickProfession = (prof: Profession) => {
     if (takenProfIds.includes(prof.id)) return;
     setSelectedProfession(prof);
-    setShowFullCardModal(true); // Мгновенно распахиваем карточку
+    setShowFullCardModal(true);
     socket.emit('select_profession', { roomId, userId, profession: prof });
   };
 
@@ -90,7 +140,6 @@ export const RoomLobbyScreen: FC<RoomLobbyScreenProps> = ({
 
   const allPlayersReady = players.length >= 2 && players.every((p: any) => p.color && p.profession);
 
-  // Расчет сумм выбранной профессии
   const totalExpenses = selectedProfession
     ? selectedProfession.taxes +
       selectedProfession.homeMortgagePayment +
@@ -105,14 +154,12 @@ export const RoomLobbyScreen: FC<RoomLobbyScreenProps> = ({
 
   return (
     <div className="min-h-screen bg-[#130620] text-slate-100 flex flex-col p-4 sm:p-6 max-w-6xl mx-auto space-y-4">
-      {/* Оповещение об ошибке */}
       {errorMessage && (
         <div className="bg-rose-600/90 text-white font-bold px-4 py-2 rounded-xl text-xs text-center animate-bounce">
           {errorMessage}
         </div>
       )}
 
-      {/* Шапка лобби */}
       <header className="bg-slate-900 border border-purple-900/60 rounded-3xl p-4 sm:p-5 flex justify-between items-center shadow-xl">
         <div>
           <span className="text-[10px] font-mono text-purple-400 font-bold uppercase tracking-wider block">
@@ -135,9 +182,8 @@ export const RoomLobbyScreen: FC<RoomLobbyScreenProps> = ({
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1">
-        {/* Левая колонка: Игроки и Цвет */}
+        {/* Левая колонка */}
         <div className="lg:col-span-4 space-y-4">
-          {/* Список участников */}
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 space-y-3">
             <span className="text-xs font-bold text-slate-300 block uppercase tracking-wider">
               Участники в комнате:
@@ -169,7 +215,6 @@ export const RoomLobbyScreen: FC<RoomLobbyScreenProps> = ({
             </div>
           </div>
 
-          {/* Выбор цвета */}
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 space-y-3">
             <span className="text-xs font-bold text-slate-300 block uppercase tracking-wider">
               1. Выберите цвет крысы:
@@ -202,7 +247,6 @@ export const RoomLobbyScreen: FC<RoomLobbyScreenProps> = ({
             </div>
           </div>
 
-          {/* Кнопка запуска */}
           {isHost && (
             <button
               onClick={handleStartGame}
@@ -222,7 +266,7 @@ export const RoomLobbyScreen: FC<RoomLobbyScreenProps> = ({
           )}
         </div>
 
-        {/* Правая колонка: Закрытые рубашки */}
+        {/* Правая колонка */}
         <div className="lg:col-span-8 bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-4 flex flex-col justify-between">
           <div>
             <div className="flex justify-between items-center mb-3">
@@ -302,7 +346,6 @@ export const RoomLobbyScreen: FC<RoomLobbyScreenProps> = ({
             </div>
           </div>
 
-          {/* Плашка внизу */}
           {selectedProfession && (
             <div className="bg-slate-950 p-3.5 rounded-2xl border border-emerald-500/40 flex flex-wrap items-center justify-between gap-3 animate-in fade-in duration-200">
               <div className="flex items-center space-x-2">
@@ -330,12 +373,9 @@ export const RoomLobbyScreen: FC<RoomLobbyScreenProps> = ({
         </div>
       </div>
 
-      {/* МОДАЛЬНОЕ ОКНО: ПОЛНАЯ КАРТОЧКА ПРОФЕССИИ */}
       {showFullCardModal && selectedProfession && (
         <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border-2 border-amber-400/80 w-full max-w-lg rounded-3xl p-6 shadow-2xl space-y-5 text-slate-100 animate-in fade-in zoom-in-95 duration-200">
-            
-            {/* Шапка карточки */}
             <div className="flex justify-between items-start border-b border-slate-800 pb-3">
               <div>
                 <span className="text-[10px] font-mono uppercase tracking-widest text-amber-400 font-bold block">
@@ -348,7 +388,6 @@ export const RoomLobbyScreen: FC<RoomLobbyScreenProps> = ({
               </div>
             </div>
 
-            {/* Доходы и Сбережения */}
             <div className="grid grid-cols-2 gap-3 font-mono">
               <div className="bg-slate-950 p-3 rounded-2xl border border-slate-800">
                 <span className="text-[10px] text-slate-400 block uppercase font-sans font-bold">Зарплата (Salary)</span>
@@ -360,7 +399,6 @@ export const RoomLobbyScreen: FC<RoomLobbyScreenProps> = ({
               </div>
             </div>
 
-            {/* Подробная ведомость расходов */}
             <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2 text-xs font-mono">
               <div className="flex justify-between items-center text-rose-400 font-bold border-b border-slate-800/80 pb-1.5 font-sans">
                 <span>🔴 Ежемесячные расходы:</span>
@@ -393,7 +431,6 @@ export const RoomLobbyScreen: FC<RoomLobbyScreenProps> = ({
               </div>
             </div>
 
-            {/* Итоговый стартовый поток (Payday) */}
             <div className="bg-emerald-950/40 border border-emerald-500/50 p-3.5 rounded-2xl flex justify-between items-center font-mono">
               <div>
                 <span className="text-[10px] text-emerald-300 uppercase font-sans font-bold block">
