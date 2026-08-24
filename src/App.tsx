@@ -36,6 +36,10 @@ export const App = () => {
 
   // Проверка сохраненной активной сессии при перезагрузке страницы
   useEffect(() => {
+    if (!socket.connected) {
+      socket.connect();
+    }
+
     const savedSession = localStorage.getItem('cashflow_active_session');
     if (savedSession) {
       try {
@@ -44,7 +48,6 @@ export const App = () => {
           setActiveRoomId(parsed.roomId);
           if (parsed.userName) setPlayerName(parsed.userName);
           
-          // Отправляем запрос на восстановление сессии
           socket.emit('reconnect_session', {
             roomId: parsed.roomId,
             userId: parsed.userId
@@ -56,7 +59,7 @@ export const App = () => {
     }
 
     // Обработчик успешного восстановления сессии
-    socket.on('session_restored', ({ roomData, gameStarted, player: restoredPlayer }) => {
+    const handleSessionRestored = ({ roomData, gameStarted, player: restoredPlayer }: any) => {
       const me = restoredPlayer || roomData.players?.find((p: any) => p.userId === userId);
       
       if (me) {
@@ -91,21 +94,35 @@ export const App = () => {
       } else {
         setStep('ROOM_LOBBY');
       }
-    });
+    };
 
-    // Обработчик неудачного восстановления (комната удалена / таймаут 2 мин)
-    socket.on('session_restore_failed', () => {
+    // Обработчик неудачного восстановления (комната удалена / таймаут)
+    const handleSessionFailed = () => {
       localStorage.removeItem('cashflow_active_session');
+      setActiveRoomId('');
       if (playerName) {
         setStep('LOBBY_BROWSER');
       } else {
         setStep('WELCOME');
       }
-    });
+    };
+
+    // Обработчик ошибок от сервера (например, комната переполнена)
+    const handleErrorMessage = (msg: string) => {
+      alert(msg);
+      localStorage.removeItem('cashflow_active_session');
+      setActiveRoomId('');
+      setStep('LOBBY_BROWSER');
+    };
+
+    socket.on('session_restored', handleSessionRestored);
+    socket.on('session_restore_failed', handleSessionFailed);
+    socket.on('error_message', handleErrorMessage);
 
     return () => {
-      socket.off('session_restored');
-      socket.off('session_restore_failed');
+      socket.off('session_restored', handleSessionRestored);
+      socket.off('session_restore_failed', handleSessionFailed);
+      socket.off('error_message', handleErrorMessage);
     };
   }, [userId, playerName]);
 
@@ -127,12 +144,15 @@ export const App = () => {
     setActiveRoomId(roomId);
     setGameSettings({ roomId, maxPlayers, autoPayday });
 
-    // Сохраняем активную сессию
     localStorage.setItem('cashflow_active_session', JSON.stringify({
       roomId,
       userId,
       userName: playerName
     }));
+
+    if (!socket.connected) {
+      socket.connect();
+    }
 
     socket.emit('create_room', {
       roomId,
@@ -154,12 +174,15 @@ export const App = () => {
   const handleJoinRoom = (roomId: string) => {
     setActiveRoomId(roomId);
 
-    // Сохраняем активную сессию
     localStorage.setItem('cashflow_active_session', JSON.stringify({
       roomId,
       userId,
       userName: playerName
     }));
+
+    if (!socket.connected) {
+      socket.connect();
+    }
 
     socket.emit('join_room', {
       roomId,
@@ -199,7 +222,6 @@ export const App = () => {
         autoPayday: roomData.autoPayday
       });
 
-      // Обновляем сохраненную сессию
       localStorage.setItem('cashflow_active_session', JSON.stringify({
         roomId: roomData.roomId,
         userId,
@@ -212,11 +234,13 @@ export const App = () => {
 
   const handleLeaveLobby = () => {
     localStorage.removeItem('cashflow_active_session');
+    setActiveRoomId('');
     setStep('LOBBY_BROWSER');
   };
 
   const handleRestart = () => {
     localStorage.removeItem('cashflow_active_session');
+    setActiveRoomId('');
     setStep('LOBBY_BROWSER');
     setPlayer(null);
     setPlayerColor(null);
