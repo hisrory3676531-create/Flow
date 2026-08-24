@@ -20,7 +20,7 @@ interface LobbyBrowserScreenProps {
   onBack: () => void;
 }
 
-const RAILWAY_URL = 'https://flow-production-71b0.up.railway.app';
+const RAILWAY_URL = 'https://flow-1-xtu5.onrender.com';
 
 export const LobbyBrowserScreen: FC<LobbyBrowserScreenProps> = ({
   userName,

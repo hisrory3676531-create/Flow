@@ -1,6 +1,6 @@
 import { io } from 'socket.io-client';
 
-const BACKEND_URL = 'https://flow-production-71b0.up.railway.app';
+const BACKEND_URL = 'https://flow-1-xtu5.onrender.com';
 
 export const socket = io(BACKEND_URL, {
   transports: ['polling', 'websocket'],
