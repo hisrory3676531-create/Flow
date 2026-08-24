@@ -20,6 +20,8 @@ interface LobbyBrowserScreenProps {
   onBack: () => void;
 }
 
+const RAILWAY_URL = 'https://flow-production-71b0.up.railway.app';
+
 export const LobbyBrowserScreen: FC<LobbyBrowserScreenProps> = ({
   userName,
   onJoinRoom,
@@ -33,9 +35,26 @@ export const LobbyBrowserScreen: FC<LobbyBrowserScreenProps> = ({
   const [autoPayday, setAutoPayday] = useState<boolean>(true);
   const [customRoomId, setCustomRoomId] = useState<string>('');
 
+  const fetchRoomsHttp = async () => {
+    try {
+      const res = await fetch(`${RAILWAY_URL}/api/rooms`);
+      if (res.ok) {
+        const data = await res.json();
+        setRooms(data || []);
+      }
+    } catch {
+      // Игнорируем сетевые ошибки, сокет подстрахует
+    }
+  };
+
   useEffect(() => {
-    // Первичный запрос
-    socket.emit('get_rooms');
+    // 1. Первичный запрос по HTTP и сокету
+    fetchRoomsHttp();
+    if (socket.connected) {
+      socket.emit('get_rooms');
+    } else {
+      socket.connect();
+    }
 
     const handleRoomsList = (list: RoomSummary[]) => {
       setRooms(list || []);
@@ -43,9 +62,12 @@ export const LobbyBrowserScreen: FC<LobbyBrowserScreenProps> = ({
 
     socket.on('rooms_list', handleRoomsList);
 
-    // Периодическое обновление каждые 1.5 секунды
+    // 2. Периодический опрос каждые 1.5 секунды
     const interval = setInterval(() => {
-      socket.emit('get_rooms');
+      fetchRoomsHttp();
+      if (socket.connected) {
+        socket.emit('get_rooms');
+      }
     }, 1500);
 
     return () => {
