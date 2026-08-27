@@ -214,9 +214,9 @@ export const GameBoard: FC<GameBoardProps> = ({
         
         {/* Анимированный 3D бросок кубика по центру игрового поля для всех участников */}
         {isRolling && (
-          <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-slate-950/50 backdrop-blur-[3px] rounded-2xl animate-in fade-in zoom-in-90 duration-200 pointer-events-none">
-            <div className="bg-slate-900/95 border-2 border-amber-400 p-5 rounded-3xl shadow-2xl shadow-amber-500/40 flex flex-col items-center space-y-3">
-              <Dice3DContainer value={diceValue} isRolling={isRolling} size={56} />
+          <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-slate-950/60 backdrop-blur-[3px] rounded-2xl animate-in fade-in zoom-in-95 duration-200 pointer-events-none">
+            <div className="bg-slate-900/95 border-2 border-amber-400 p-5 sm:p-6 rounded-3xl shadow-2xl shadow-amber-500/40 flex flex-col items-center space-y-3">
+              <Dice3DContainer value={diceValue} isRolling={isRolling} size={58} />
               <span className="text-xs font-mono font-black text-amber-300 uppercase tracking-widest animate-pulse">
                 🎲 Бросок кубика ({activePlayer.name})...
               </span>

@@ -238,6 +238,7 @@ export const GameScreen: FC<GameScreenProps> = ({
     });
 
     socket.on('sync_game_state', (roomData) => {
+      setIsRolling(false);
       if (roomData.players) {
         setRoomPlayers(
           roomData.players.map((p: any) => {
@@ -582,7 +583,7 @@ export const GameScreen: FC<GameScreenProps> = ({
         currentTile,
         cardData: openedCardData
       });
-    }, 650);
+    }, 1400);
   };
 
   const handleBuyFastTrackDeal = (tile: FastTrackTile) => {
