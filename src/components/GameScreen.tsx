@@ -276,6 +276,14 @@ export const GameScreen: FC<GameScreenProps> = ({
       financials: updatedPlayer.financials!
     }));
 
+    setRoomPlayers((prev) =>
+      prev.map((p) =>
+        p.id === player.id
+          ? { ...p, isOnFastTrack: true, fastTrackPosition: 0 }
+          : p
+      )
+    );
+
     setShowFastTrackTransition(false);
 
     socket.emit('player_update_financials', {
@@ -351,11 +359,29 @@ export const GameScreen: FC<GameScreenProps> = ({
       setIsRolling(false);
       setHasRolledThisTurn(true);
 
+      // -------------------------------------------------------------
+      // 1. ХОД НА СКОРОСТНОЙ ДОРОЖКЕ (FAST TRACK - 30 КЛЕТОК)
+      // -------------------------------------------------------------
       if (isOnFastTrack) {
         const oldPos = player.fastTrackPosition ?? 0;
         const newPos = (oldPos + totalDice) % 30;
         const currentTile = FAST_TRACK_TILES[newPos];
 
+        // Мгновенное обновление локальной позиции фишки
+        setPlayer((prev) => ({
+          ...prev,
+          fastTrackPosition: newPos
+        }));
+
+        setRoomPlayers((prev) =>
+          prev.map((p) =>
+            p.id === player.id
+              ? { ...p, fastTrackPosition: newPos, isOnFastTrack: true }
+              : p
+          )
+        );
+
+        // Проверка прохождения через День Инвестора
         let passedPaydayCount = 0;
         for (let step = 1; step <= totalDice; step++) {
           const stepPos = (oldPos + step) % 30;
@@ -367,6 +393,7 @@ export const GameScreen: FC<GameScreenProps> = ({
         let paydayEarned = 0;
         if (passedPaydayCount > 0) {
           paydayEarned = (player.fastTrackCashflow || 0) * passedPaydayCount;
+          setPlayer((prev) => ({ ...prev, cash: prev.cash + paydayEarned }));
           addLog(`💰 Пройден сектор Дня Инвестора! Получено +$${paydayEarned.toLocaleString()}`);
         }
 
@@ -383,53 +410,56 @@ export const GameScreen: FC<GameScreenProps> = ({
               addLog(`🏆 АБСОЛЮТНАЯ ПОБЕДА! ${player.name} выкупил свою Мечту «${currentTile.title}»!`);
             } else {
               addLog(`🌟 Сектор вашей Мечты! Нужно $${currentTile.cost?.toLocaleString()}, у вас $${player.cash.toLocaleString()}`);
-              setTimeout(handleEndTurn, 1500);
             }
           } else {
             addLog(`📍 Сектор чужой мечты: «${currentTile.title}».`);
-            setTimeout(handleEndTurn, 1200);
           }
         } else if (currentTile.type === 'TAX_AUDIT') {
           soundManager.playExpenseSound();
           const taxAmt = Math.round(player.cash * 0.2);
+          const newCash = Math.max(0, player.cash - taxAmt);
+          setPlayer((prev) => ({ ...prev, cash: newCash }));
           addLog(`⚖️ Налоговый аудит! Списано 20% наличных: -$${taxAmt.toLocaleString()}`);
+
           socket.emit('player_update_financials', {
             roomId,
             updatedPlayer: {
               userId: player.userId,
-              cash: Math.max(0, player.cash - taxAmt)
+              cash: newCash
             },
             logMessage: `⚖️ ${player.name} оплатил налоговый аудит: -$${taxAmt.toLocaleString()}`
           });
-          setTimeout(handleEndTurn, 1200);
         } else if (currentTile.type === 'LAWSUIT') {
           soundManager.playExpenseSound();
           const lawsuitCost = 50000;
+          const newCash = Math.max(0, player.cash - lawsuitCost);
+          setPlayer((prev) => ({ ...prev, cash: newCash }));
           addLog(`🏛️ Судебный иск! Штраф: -$${lawsuitCost.toLocaleString()}`);
+
           socket.emit('player_update_financials', {
             roomId,
             updatedPlayer: {
               userId: player.userId,
-              cash: Math.max(0, player.cash - lawsuitCost)
+              cash: newCash
             },
             logMessage: `🏛️ ${player.name} выплатил судебный иск: -$${lawsuitCost.toLocaleString()}`
           });
-          setTimeout(handleEndTurn, 1200);
         } else if (currentTile.type === 'DONATION') {
           soundManager.playCoinSound();
-          addLog(`🤝 Фонд Fast Track: пожертвование $50,000 дает бросок 3 кубиков на 3 хода.`);
+          const donationAmt = 50000;
+          const newCash = Math.max(0, player.cash - donationAmt);
+          setPlayer((prev) => ({ ...prev, cash: newCash }));
           setCharityTurnsLeft(3);
+          addLog(`🤝 Фонд Fast Track: пожертвование $50,000 дает бросок 3 кубиков на 3 хода.`);
+
           socket.emit('player_update_financials', {
             roomId,
             updatedPlayer: {
               userId: player.userId,
-              cash: Math.max(0, player.cash - 50000)
+              cash: newCash
             },
             logMessage: `🤝 ${player.name} пожертвовал в фонд $50,000!`
           });
-          setTimeout(handleEndTurn, 1200);
-        } else if (currentTile.type === 'PAYDAY') {
-          setTimeout(handleEndTurn, 1200);
         }
 
         socket.emit('player_roll_dice', {
@@ -445,6 +475,9 @@ export const GameScreen: FC<GameScreenProps> = ({
         return;
       }
 
+      // -------------------------------------------------------------
+      // 2. ХОД НА МАЛОМ КРУГЕ (RAT RACE - 24 КЛЕТКИ)
+      // -------------------------------------------------------------
       const oldPos = player.boardPosition ?? 0;
       const newPos = (oldPos + totalDice) % 24;
       const currentTile = BOARD_TILES[newPos];
@@ -526,6 +559,13 @@ export const GameScreen: FC<GameScreenProps> = ({
 
     const updatedCash = player.cash - cost;
     const updatedFastCashflow = (player.fastTrackCashflow || 0) + addedCashflow;
+
+    setPlayer((prev) => ({
+      ...prev,
+      cash: updatedCash,
+      fastTrackCashflow: updatedFastCashflow,
+      assets: [...prev.assets, newAsset]
+    }));
 
     socket.emit('player_update_financials', {
       roomId,
@@ -1153,6 +1193,7 @@ export const GameScreen: FC<GameScreenProps> = ({
           ⏳ {tradeWaitingMessage}
         </div>
       )}
+
       {/* ========================================================================= */}
       {/* ПАНЕЛЬ ТЕСТИРОВАНИЯ И ЧИТОВ (ДЛЯ РАЗРАБОТЧИКА)                             */}
       {/* ========================================================================= */}
