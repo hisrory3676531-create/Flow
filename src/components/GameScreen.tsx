@@ -1102,7 +1102,7 @@ socket.on('sync_game_state', (roomData) => {
         />
       )}
 
-      {!isMyTurn && networkActiveCard && !networkActiveCard.offerPrice && networkActiveCard.cardType !== 'Рынок' && !networkActiveCard.targetType && (
+      {!isMyTurn && networkActiveCard && (
         <SpectatorCardModal cardData={networkActiveCard} />
       )}
 

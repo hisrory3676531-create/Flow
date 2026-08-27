@@ -9,7 +9,22 @@ export const SpectatorCardModal: FC<SpectatorCardModalProps> = ({ cardData }) =>
   if (!cardData) return null;
 
   const isStock = cardData.type === 'STOCK';
+  const isFastTrackBiz = cardData.type === 'BUSINESS' || cardData.type === 'FAST_TRACK_BIZ';
+  const isDream = cardData.type === 'DREAM';
   const owner = cardData.ownerName || 'Игрок';
+
+  // Определение подходящей иконки для карточки
+  const getIcon = () => {
+    if (cardData.icon) return cardData.icon;
+    if (isStock) return '📈';
+    if (cardData.type === 'REAL_ESTATE') return '🏠';
+    if (isFastTrackBiz) return '🏢';
+    if (isDream) return '🌟';
+    if (cardData.type === 'TAX_AUDIT') return '⚖️';
+    if (cardData.type === 'LAWSUIT') return '🏛️';
+    if (cardData.type === 'DONATION' || cardData.type === 'CHARITY') return '🤝';
+    return '💼';
+  };
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 pointer-events-none">
@@ -22,49 +37,51 @@ export const SpectatorCardModal: FC<SpectatorCardModalProps> = ({ cardData }) =>
               👀 ХОД СОПЕРНИКА ({owner})
             </span>
             <h3 className="text-base font-black text-slate-100">
-              {cardData.title || cardData.cardType || 'Карточка'}
+              {cardData.title || cardData.cardType || 'Карточка события'}
             </h3>
           </div>
-          <span className="text-2xl">{isStock ? '📈' : cardData.type === 'REAL_ESTATE' ? '🏠' : '💼'}</span>
+          <span className="text-2xl">{getIcon()}</span>
         </div>
 
         {/* Текст описания */}
         <p className="text-xs text-slate-300 bg-slate-950 p-3.5 rounded-2xl border border-slate-800 leading-relaxed">
-          {cardData.description || 'Игрок принимает решение по сделке...'}
+          {cardData.description || 'Игрок принимает решение по сделке или событию...'}
         </p>
 
         {/* Финансовая таблица параметров */}
         {(cardData.cost || cardData.downPayment || cardData.cashflow !== undefined) && (
           <div className="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 space-y-1.5 font-mono text-xs">
-            {cardData.cost && (
+            {cardData.cost ? (
               <div className="flex justify-between text-slate-400">
                 <span>Стоимость:</span>
                 <span className="text-slate-200 font-bold">
                   {isStock ? `${cardData.cost} $ / акция` : `${cardData.cost.toLocaleString()} $`}
                 </span>
               </div>
-            )}
+            ) : null}
 
-            {cardData.mortgage && (
+            {cardData.mortgage ? (
               <div className="flex justify-between text-slate-400">
                 <span>Ипотека объекта:</span>
                 <span className="text-slate-300 font-bold">{cardData.mortgage.toLocaleString()} $</span>
               </div>
-            )}
+            ) : null}
 
-            {cardData.downPayment && (
+            {cardData.downPayment ? (
               <div className="flex justify-between text-slate-400">
                 <span>Первый взнос:</span>
                 <span className="text-emerald-400 font-bold">{cardData.downPayment.toLocaleString()} $</span>
               </div>
-            )}
+            ) : null}
 
-            {cardData.cashflow !== undefined && (
+            {cardData.cashflow !== undefined ? (
               <div className="flex justify-between text-slate-400">
-                <span>Доход актива (Cashflow):</span>
-                <span className="text-emerald-400 font-bold">+{cardData.cashflow.toLocaleString()} $/мес</span>
+                <span>Доход актива (Поток):</span>
+                <span className="text-emerald-400 font-bold">
+                  +{cardData.cashflow.toLocaleString()} ${isFastTrackBiz ? '/ход' : '/мес'}
+                </span>
               </div>
-            )}
+            ) : null}
           </div>
         )}
 
