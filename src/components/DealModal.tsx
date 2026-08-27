@@ -16,6 +16,8 @@ interface DealModalProps {
   onPass: () => void;
 }
 
+const MIN_CASH_FOR_BIG_DEAL = 6000;
+
 export const DealModal: FC<DealModalProps> = ({
   roomId,
   playerCash,
@@ -33,7 +35,11 @@ export const DealModal: FC<DealModalProps> = ({
   const [showTradeBlock, setShowTradeBlock] = useState<boolean>(false);
   const [tradeFee, setTradeFee] = useState<number>(500);
 
+  const canAffordBigDealCategory = playerCash >= MIN_CASH_FOR_BIG_DEAL;
+
   const handleSelectCategory = (cat: 'SMALL' | 'BIG') => {
+    if (cat === 'BIG' && !canAffordBigDealCategory) return;
+
     setDealTypeChosen(cat);
     const pool = cat === 'SMALL' ? SMALL_DEALS : BIG_DEALS;
     const randomCard = pool[Math.floor(Math.random() * pool.length)];
@@ -74,27 +80,37 @@ export const DealModal: FC<DealModalProps> = ({
               <span>💼 КЛЕТКА «ВОЗМОЖНОСТЬ»</span>
             </div>
             <h2 className="text-xl font-black">Выберите размер сделки</h2>
-            <p className="text-xs text-slate-400">
-              Мелкие сделки подходят для старта. Крупные требуют солидный первый взнос или кредитное плечо.
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Мелкие сделки доступны всегда и позволяют разогнать капитал. Для выбора крупных сделок требуется минимум <b className="text-amber-300">$6,000</b> наличными.
             </p>
 
-            <div className="grid grid-cols-2 gap-3 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
               <button
                 onClick={() => handleSelectCategory('SMALL')}
-                className="bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-blue-500 p-4 rounded-2xl flex flex-col items-center text-center space-y-2 transition cursor-pointer group"
+                className="bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-blue-500 p-4 rounded-2xl flex flex-col items-center text-center space-y-1.5 transition cursor-pointer group active:scale-95"
               >
                 <span className="text-3xl group-hover:scale-110 transition">🪙</span>
                 <span className="text-sm font-bold text-blue-400">Мелкая сделка</span>
-                <span className="text-[11px] text-slate-400">Взнос до 5 000 $ (акции, 1-2к квартиры)</span>
+                <span className="text-[11px] text-slate-400">Взнос до $5,000 (акции, 1-2к квартиры, вендинг)</span>
               </button>
 
               <button
                 onClick={() => handleSelectCategory('BIG')}
-                className="bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-amber-500 p-4 rounded-2xl flex flex-col items-center text-center space-y-2 transition cursor-pointer group"
+                disabled={!canAffordBigDealCategory}
+                className={`p-4 rounded-2xl flex flex-col items-center text-center space-y-1.5 transition border ${
+                  canAffordBigDealCategory
+                    ? 'bg-slate-950 hover:bg-slate-800 border-slate-800 hover:border-amber-500 cursor-pointer group active:scale-95'
+                    : 'bg-slate-950/50 border-slate-800/60 opacity-50 cursor-not-allowed'
+                }`}
               >
                 <span className="text-3xl group-hover:scale-110 transition">🏢</span>
                 <span className="text-sm font-bold text-amber-400">Крупная сделка</span>
-                <span className="text-[11px] text-slate-400">Взнос от 6 000 $ (дома, коммерция, бизнес)</span>
+                <span className="text-[11px] text-slate-400">Взнос от $8,000 (многоквартирные дома, РЦ, бизнес)</span>
+                {!canAffordBigDealCategory && (
+                  <span className="text-[10px] text-rose-400 font-mono font-bold pt-1">
+                    Нужно минимум $6,000 (у вас: ${playerCash.toLocaleString()})
+                  </span>
+                )}
               </button>
             </div>
 
@@ -153,7 +169,6 @@ export const DealModal: FC<DealModalProps> = ({
                     onChange={(e) => {
                       const newAmount = Math.max(10, parseInt(e.target.value) || 0);
                       setSharesAmount(newAmount);
-                      // Транслируем изменение количества акций
                       socket.emit('broadcast_active_card', {
                         roomId,
                         cardData: {
