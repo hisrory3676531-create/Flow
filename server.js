@@ -11,7 +11,6 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Хранилище комнат и таймеров
 const rooms = new Map();
 const disconnectTimeouts = new Map();
 
@@ -69,7 +68,6 @@ io.on('connection', (socket) => {
     socket.emit('rooms_list', getPublicRooms());
   });
 
-  // Запрос актуального состояния конкретного лобби (устраняет бесконечную загрузку)
   socket.on('get_room_lobby_state', ({ roomId }) => {
     const room = rooms.get(roomId);
     if (room) {
@@ -132,6 +130,11 @@ io.on('connection', (socket) => {
         ...hostPlayer,
         socketId: socket.id,
         boardPosition: 0,
+        position: 0,
+        currentTrack: hostPlayer.currentTrack || 'RAT_RACE',
+        fastTrackPosition: 0,
+        fastTrackCashflow: 0,
+        fastTrackInitialCashflow: 0,
         isHost: true,
         isReady: false,
         isDisconnected: false
@@ -157,8 +160,12 @@ io.on('connection', (socket) => {
         clearTimeout(disconnectTimeouts.get(playerProfile.userId));
         disconnectTimeouts.delete(playerProfile.userId);
       }
-      room.players[existingIdx].socketId = socket.id;
-      room.players[existingIdx].isDisconnected = false;
+      room.players[existingIdx] = {
+        ...room.players[existingIdx],
+        ...playerProfile,
+        socketId: socket.id,
+        isDisconnected: false
+      };
       socket.join(roomId);
     } else {
       if (room.players.length >= room.maxPlayers) {
@@ -169,7 +176,12 @@ io.on('connection', (socket) => {
       room.players.push({
         ...playerProfile,
         socketId: socket.id,
-        boardPosition: 0,
+        boardPosition: playerProfile.boardPosition ?? 0,
+        position: playerProfile.position ?? 0,
+        currentTrack: playerProfile.currentTrack || 'RAT_RACE',
+        fastTrackPosition: playerProfile.fastTrackPosition ?? 0,
+        fastTrackCashflow: playerProfile.fastTrackCashflow ?? 0,
+        fastTrackInitialCashflow: playerProfile.fastTrackInitialCashflow ?? 0,
         isHost: false,
         isReady: false,
         isDisconnected: false
@@ -280,23 +292,33 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('game_started', room);
   });
 
-  socket.on('player_roll_dice', ({ roomId, diceValue, paydayAmount, currentTile, cardData }) => {
+  // БРОСОК КУБИКА (ПОДДЕРЖКА МАЛОГО КРУГА И FAST TRACK)
+  socket.on('player_roll_dice', ({ roomId, diceValue, newPosition, currentTrack, paydayAmount, currentTile, cardData }) => {
     const room = rooms.get(roomId);
     if (!room) return;
 
     const player = room.players[room.currentTurnIndex];
     if (player) {
-      const oldPos = Number(player.boardPosition) || 0;
-      const newPos = (oldPos + Number(diceValue)) % 24;
-      player.boardPosition = newPos;
-      player.position = newPos;
+      const isOnFT = currentTrack === 'FAST_TRACK' || player.currentTrack === 'FAST_TRACK';
+
+      if (isOnFT) {
+        player.currentTrack = 'FAST_TRACK';
+        player.isOnFastTrack = true;
+        player.fastTrackPosition = typeof newPosition === 'number' ? newPosition : 0;
+        player.position = player.fastTrackPosition;
+      } else {
+        player.currentTrack = 'RAT_RACE';
+        player.isOnFastTrack = false;
+        player.boardPosition = typeof newPosition === 'number' ? newPosition : 0;
+        player.position = player.boardPosition;
+      }
 
       if (paydayAmount > 0) {
         player.cash = (player.cash || 0) + paydayAmount;
         room.logs.unshift(`💰 ${player.name}: Получен чек Payday (+${paydayAmount.toLocaleString()}$)`);
       }
-      
-      room.logs.unshift(`🎲 ${player.name} выбросил ${diceValue} ➔ «${currentTile.title}» (Клетка #${newPos})`);
+
+      room.logs.unshift(`🎲 ${player.name} выбросил ${diceValue} ➔ «${currentTile?.title || 'Ход'}» (Клетка #${newPosition})`);
     }
 
     room.activeCardData = cardData ? { ...cardData, ownerName: player?.name, ownerId: player?.id } : null;
