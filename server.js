@@ -61,6 +61,17 @@ const advanceTurn = (room) => {
   io.to(room.roomId).emit('sync_game_state', room);
 };
 
+// Функция проверки полной готовности игрока
+const updatePlayerReadyState = (player) => {
+  if (!player) return;
+  // Игрок готов, если выбраны цвет, профессия (или есть финансы) и мечта
+  const hasColor = Boolean(player.color && player.color.id);
+  const hasProfession = Boolean(player.profession && player.profession.title);
+  const hasDream = Boolean(player.dream && player.dream.id);
+
+  player.isReady = hasColor && hasProfession && hasDream;
+};
+
 io.on('connection', (socket) => {
   socket.emit('rooms_list', getPublicRooms());
 
@@ -115,6 +126,22 @@ io.on('connection', (socket) => {
   socket.on('create_room', ({ roomId, roomName, hostPlayer, maxPlayers, autoPayday }) => {
     socket.join(roomId);
 
+    const initialHost = {
+      ...hostPlayer,
+      socketId: socket.id,
+      boardPosition: 0,
+      position: 0,
+      currentTrack: hostPlayer.currentTrack || 'RAT_RACE',
+      fastTrackPosition: 0,
+      fastTrackCashflow: 0,
+      fastTrackInitialCashflow: 0,
+      isHost: true,
+      isReady: false,
+      isDisconnected: false
+    };
+
+    updatePlayerReadyState(initialHost);
+
     rooms.set(roomId, {
       roomId,
       name: roomName || `Комната #${roomId}`,
@@ -126,19 +153,7 @@ io.on('connection', (socket) => {
       currentTurnIndex: 0,
       activeCardData: null,
       pendingDealTrade: null,
-      players: [{
-        ...hostPlayer,
-        socketId: socket.id,
-        boardPosition: 0,
-        position: 0,
-        currentTrack: hostPlayer.currentTrack || 'RAT_RACE',
-        fastTrackPosition: 0,
-        fastTrackCashflow: 0,
-        fastTrackInitialCashflow: 0,
-        isHost: true,
-        isReady: false,
-        isDisconnected: false
-      }],
+      players: [initialHost],
       logs: [`[Лобби] Создана комната «${roomName || roomId}»`]
     });
 
@@ -166,6 +181,7 @@ io.on('connection', (socket) => {
         socketId: socket.id,
         isDisconnected: false
       };
+      updatePlayerReadyState(room.players[existingIdx]);
       socket.join(roomId);
     } else {
       if (room.players.length >= room.maxPlayers) {
@@ -173,7 +189,7 @@ io.on('connection', (socket) => {
         return;
       }
       socket.join(roomId);
-      room.players.push({
+      const newPlayer = {
         ...playerProfile,
         socketId: socket.id,
         boardPosition: playerProfile.boardPosition ?? 0,
@@ -185,31 +201,15 @@ io.on('connection', (socket) => {
         isHost: false,
         isReady: false,
         isDisconnected: false
-      });
+      };
+      updatePlayerReadyState(newPlayer);
+      room.players.push(newPlayer);
       room.logs.unshift(`👋 ${playerProfile.name} присоединился к комнате.`);
     }
 
     io.emit('rooms_list', getPublicRooms());
     io.to(roomId).emit('sync_room_lobby', room);
     io.to(roomId).emit('sync_game_state', room);
-  });
-
-  socket.on('player_close_card', ({ roomId, autoEndTurn }) => {
-    const room = rooms.get(roomId);
-    if (!room) return;
-    room.activeCardData = null;
-
-    if (autoEndTurn) {
-      advanceTurn(room);
-    } else {
-      io.to(roomId).emit('sync_game_state', room);
-    }
-  });
-
-  socket.on('player_end_turn', ({ roomId }) => {
-    const room = rooms.get(roomId);
-    if (!room) return;
-    advanceTurn(room);
   });
 
   socket.on('select_color', ({ roomId, userId, color }) => {
@@ -225,6 +225,20 @@ io.on('connection', (socket) => {
     const player = room.players.find((p) => p.userId === userId);
     if (player) {
       player.color = color;
+      updatePlayerReadyState(player);
+    }
+
+    io.to(roomId).emit('sync_room_lobby', room);
+  });
+
+  socket.on('select_dream', ({ roomId, userId, dream }) => {
+    const room = rooms.get(roomId);
+    if (!room) return;
+
+    const player = room.players.find((p) => p.userId === userId);
+    if (player) {
+      player.dream = dream;
+      updatePlayerReadyState(player);
     }
 
     io.to(roomId).emit('sync_room_lobby', room);
@@ -270,7 +284,19 @@ io.on('connection', (socket) => {
             profession.creditCardPayment +
             profession.otherExpenses)
       };
-      player.isReady = true;
+      updatePlayerReadyState(player);
+    }
+
+    io.to(roomId).emit('sync_room_lobby', room);
+  });
+
+  socket.on('player_ready_toggle', ({ roomId, userId, isReady }) => {
+    const room = rooms.get(roomId);
+    if (!room) return;
+
+    const player = room.players.find((p) => p.userId === userId);
+    if (player) {
+      player.isReady = typeof isReady === 'boolean' ? isReady : true;
     }
 
     io.to(roomId).emit('sync_room_lobby', room);
@@ -292,7 +318,6 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('game_started', room);
   });
 
-  // БРОСОК КУБИКА (ПОДДЕРЖКА МАЛОГО КРУГА И FAST TRACK)
   socket.on('player_roll_dice', ({ roomId, diceValue, newPosition, currentTrack, paydayAmount, currentTile, cardData }) => {
     const room = rooms.get(roomId);
     if (!room) return;
@@ -323,6 +348,24 @@ io.on('connection', (socket) => {
 
     room.activeCardData = cardData ? { ...cardData, ownerName: player?.name, ownerId: player?.id } : null;
     io.to(roomId).emit('sync_game_state', room);
+  });
+
+  socket.on('player_close_card', ({ roomId, autoEndTurn }) => {
+    const room = rooms.get(roomId);
+    if (!room) return;
+    room.activeCardData = null;
+
+    if (autoEndTurn) {
+      advanceTurn(room);
+    } else {
+      io.to(roomId).emit('sync_game_state', room);
+    }
+  });
+
+  socket.on('player_end_turn', ({ roomId }) => {
+    const room = rooms.get(roomId);
+    if (!room) return;
+    advanceTurn(room);
   });
 
   socket.on('broadcast_active_card', ({ roomId, cardData }) => {
