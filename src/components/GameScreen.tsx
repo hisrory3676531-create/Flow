@@ -583,7 +583,7 @@ export const GameScreen: FC<GameScreenProps> = ({
         currentTile,
         cardData: openedCardData
       });
-    }, 1400);
+    }, 2000);
   };
 
   const handleBuyFastTrackDeal = (tile: FastTrackTile) => {
