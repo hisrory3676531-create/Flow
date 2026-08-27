@@ -81,7 +81,6 @@ export const GameScreen: FC<GameScreenProps> = ({
     `[Режим ЗП] ${settings?.autoPayday ? 'Автоматическое начисление' : 'Ручное получение (кнопка)'}`
   ]);
 
-  // Модальные окна Малого круга
   const [activeDealModal, setActiveDealModal] = useState<boolean>(false);
   const [activeDoodadCard, setActiveDoodadCard] = useState<DoodadCard | null>(null);
   const [activeMarketCard, setActiveMarketCard] = useState<MarketCard | null>(null);
@@ -91,7 +90,6 @@ export const GameScreen: FC<GameScreenProps> = ({
   const [showVictoryModal, setShowVictoryModal] = useState<boolean>(false);
   const [showBabyModal, setShowBabyModal] = useState<boolean>(false);
 
-  // Модальные окна Fast Track
   const [showFastTrackTransition, setShowFastTrackTransition] = useState<boolean>(false);
   const [activeFastTrackDeal, setActiveFastTrackDeal] = useState<FastTrackTile | null>(null);
 
@@ -189,26 +187,30 @@ export const GameScreen: FC<GameScreenProps> = ({
     socket.on('sync_game_state', (roomData) => {
       if (roomData.players) {
         setRoomPlayers(
-          roomData.players.map((p: any) => ({
-            id: p.id,
-            name: p.name,
-            position: p.position ?? p.boardPosition ?? 0,
-            color: p.color,
-            isCurrentTurn: p.isCurrentTurn,
-            isOnFastTrack: p.currentTrack === 'FAST_TRACK',
-            fastTrackPosition: p.fastTrackPosition ?? 0
-          }))
+          roomData.players.map((p: any) => {
+            const isFT = p.currentTrack === 'FAST_TRACK' || p.isOnFastTrack;
+            return {
+              id: p.id,
+              name: p.name,
+              position: p.position ?? p.boardPosition ?? 0,
+              color: p.color,
+              isCurrentTurn: p.isCurrentTurn,
+              isOnFastTrack: isFT,
+              fastTrackPosition: isFT ? (p.fastTrackPosition ?? p.position ?? 0) : (p.fastTrackPosition ?? 0)
+            };
+          })
         );
 
         const me = roomData.players.find((p: any) => p.userId === player.userId);
         if (me) {
+          const isMeFT = me.currentTrack === 'FAST_TRACK' || me.isOnFastTrack;
           setPlayer((prev) => ({
             ...prev,
             cash: me.cash,
             bankDebt: me.bankDebt ?? prev.bankDebt ?? 0,
-            boardPosition: me.position ?? prev.boardPosition,
-            currentTrack: me.currentTrack ?? prev.currentTrack,
-            fastTrackPosition: me.fastTrackPosition ?? prev.fastTrackPosition ?? 0,
+            boardPosition: isMeFT ? prev.boardPosition : (me.position ?? prev.boardPosition),
+            currentTrack: isMeFT ? 'FAST_TRACK' : (me.currentTrack ?? prev.currentTrack),
+            fastTrackPosition: isMeFT ? (me.fastTrackPosition ?? me.position ?? prev.fastTrackPosition) : prev.fastTrackPosition,
             fastTrackCashflow: me.fastTrackCashflow ?? prev.fastTrackCashflow ?? 0,
             fastTrackInitialCashflow: me.fastTrackInitialCashflow ?? prev.fastTrackInitialCashflow ?? 0,
             financials: me.financials ?? prev.financials,
@@ -249,31 +251,28 @@ export const GameScreen: FC<GameScreenProps> = ({
 
   const handleEnterFastTrack = () => {
     const fastIncome = player.financials.passiveIncome * 10;
-    const updatedPlayer: Partial<Player> = {
+    const updatedFin = {
+      ...player.financials,
+      salary: 0,
+      bankLoanPayment: 0,
+      taxes: 0,
+      otherExpenses: 0,
+      homeMortgagePayment: 0,
+      carLoanPayment: 0,
+      creditCardPayment: 0,
+      childCount: 0,
+      totalExpenses: 0,
+      monthlyCashflow: fastIncome
+    };
+
+    setPlayer((prev) => ({
+      ...prev,
       currentTrack: 'FAST_TRACK',
       fastTrackPosition: 0,
       fastTrackCashflow: fastIncome,
       fastTrackInitialCashflow: fastIncome,
       bankDebt: 0,
-      financials: {
-        ...player.financials,
-        salary: 0,
-        bankLoanPayment: 0,
-        taxes: 0,
-        otherExpenses: 0,
-        homeMortgagePayment: 0,
-        carLoanPayment: 0,
-        creditCardPayment: 0,
-        childCount: 0,
-        totalExpenses: 0,
-        monthlyCashflow: fastIncome
-      }
-    };
-
-    setPlayer((prev) => ({
-      ...prev,
-      ...updatedPlayer,
-      financials: updatedPlayer.financials!
+      financials: updatedFin
     }));
 
     setRoomPlayers((prev) =>
@@ -290,7 +289,14 @@ export const GameScreen: FC<GameScreenProps> = ({
       roomId,
       updatedPlayer: {
         userId: player.userId,
-        ...updatedPlayer
+        currentTrack: 'FAST_TRACK',
+        isOnFastTrack: true,
+        position: 0,
+        fastTrackPosition: 0,
+        fastTrackCashflow: fastIncome,
+        fastTrackInitialCashflow: fastIncome,
+        bankDebt: 0,
+        financials: updatedFin
       },
       logMessage: `🌟 ${player.name} вступил на Fast Track со стартовым доходом $${fastIncome.toLocaleString()}/ход!`
     });
@@ -359,15 +365,12 @@ export const GameScreen: FC<GameScreenProps> = ({
       setIsRolling(false);
       setHasRolledThisTurn(true);
 
-      // -------------------------------------------------------------
       // 1. ХОД НА СКОРОСТНОЙ ДОРОЖКЕ (FAST TRACK - 30 КЛЕТОК)
-      // -------------------------------------------------------------
       if (isOnFastTrack) {
         const oldPos = player.fastTrackPosition ?? 0;
         const newPos = (oldPos + totalDice) % 30;
         const currentTile = FAST_TRACK_TILES[newPos];
 
-        // Мгновенное обновление локальной позиции фишки
         setPlayer((prev) => ({
           ...prev,
           fastTrackPosition: newPos
@@ -381,7 +384,6 @@ export const GameScreen: FC<GameScreenProps> = ({
           )
         );
 
-        // Проверка прохождения через День Инвестора
         let passedPaydayCount = 0;
         for (let step = 1; step <= totalDice; step++) {
           const stepPos = (oldPos + step) % 30;
@@ -466,7 +468,10 @@ export const GameScreen: FC<GameScreenProps> = ({
           roomId,
           diceValue: totalDice,
           newPosition: newPos,
+          position: newPos,
+          fastTrackPosition: newPos,
           currentTrack: 'FAST_TRACK',
+          isOnFastTrack: true,
           paydayAmount: paydayEarned,
           currentTile,
           cardData: openedCardData
@@ -475,9 +480,7 @@ export const GameScreen: FC<GameScreenProps> = ({
         return;
       }
 
-      // -------------------------------------------------------------
       // 2. ХОД НА МАЛОМ КРУГЕ (RAT RACE - 24 КЛЕТКИ)
-      // -------------------------------------------------------------
       const oldPos = player.boardPosition ?? 0;
       const newPos = (oldPos + totalDice) % 24;
       const currentTile = BOARD_TILES[newPos];
@@ -935,7 +938,6 @@ export const GameScreen: FC<GameScreenProps> = ({
         </div>
 
         <div className="flex items-center space-x-2">
-          {/* Чит-кнопка для быстрого тестирования Fast Track */}
           <button
             onClick={() => {
               const hugePassive = (player.financials?.totalExpenses || 1500) + 15000;
@@ -1062,7 +1064,6 @@ export const GameScreen: FC<GameScreenProps> = ({
         )}
       </main>
 
-      {/* Модальное окно перехода на Скоростную дорожку */}
       {showFastTrackTransition && (
         <FastTrackTransitionModal
           player={player}
@@ -1070,7 +1071,6 @@ export const GameScreen: FC<GameScreenProps> = ({
         />
       )}
 
-      {/* Модальное окно покупки бизнеса на Fast Track */}
       {isMyTurn && activeFastTrackDeal && (
         <FastTrackDealModal
           tile={activeFastTrackDeal}
@@ -1194,15 +1194,11 @@ export const GameScreen: FC<GameScreenProps> = ({
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* ПАНЕЛЬ ТЕСТИРОВАНИЯ И ЧИТОВ (ДЛЯ РАЗРАБОТЧИКА)                             */}
-      {/* ========================================================================= */}
       <div className="fixed top-12 right-2 z-50 flex flex-col gap-1 bg-slate-950/90 border border-amber-400/60 p-1.5 rounded-xl shadow-2xl backdrop-blur-md">
         <span className="text-[8px] font-black text-amber-400 uppercase text-center tracking-wider">
           🛠️ Dev Cheats
         </span>
 
-        {/* 1. Выход на Fast Track */}
         <button
           onClick={() => {
             const hugePassive = (player.financials?.totalExpenses || 1500) + 20000;
@@ -1234,7 +1230,6 @@ export const GameScreen: FC<GameScreenProps> = ({
           🚀 На Fast Track
         </button>
 
-        {/* 2. Начислить $500,000 наличных */}
         <button
           onClick={() => {
             const addedCash = player.cash + 500000;
