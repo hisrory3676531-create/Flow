@@ -3,6 +3,7 @@ import type { FC } from 'react';
 import { BOARD_TILES, BoardTile } from '../data/board.data';
 import { FAST_TRACK_TILES, FastTrackTile } from '../data/fastTrack.data';
 import type { RatColor } from './ProfileSetupScreen';
+import { Dice3DContainer } from './Dice3D';
 
 export interface BoardPlayer {
   id: string;
@@ -17,11 +18,15 @@ export interface BoardPlayer {
 interface GameBoardProps {
   players: BoardPlayer[];
   activePlayerId?: string;
+  diceValue?: number | null;
+  isRolling?: boolean;
 }
 
 export const GameBoard: FC<GameBoardProps> = ({
   players = [],
-  activePlayerId
+  activePlayerId,
+  diceValue = null,
+  isRolling = false
 }) => {
   const [isMobile, setIsMobile] = useState(false);
 
@@ -172,7 +177,7 @@ export const GameBoard: FC<GameBoardProps> = ({
   const viewBoxValue = isMobile ? '0 0 750 1200' : '0 0 1200 750';
 
   return (
-    <div className="w-full h-full flex flex-col justify-between select-none">
+    <div className="w-full h-full flex flex-col justify-between select-none relative">
       <div className="flex items-center justify-between gap-1 bg-[#1c082e]/90 border border-purple-900/50 rounded-xl px-2 py-1 mb-1 shrink-0 shadow-md">
         <div className="flex items-center space-x-1.5">
           <span className="text-[11px] font-black text-amber-300 tracking-wider">CASHFLOW</span>
@@ -206,6 +211,19 @@ export const GameBoard: FC<GameBoardProps> = ({
       </div>
 
       <div className="relative w-full flex-1 flex items-center justify-center min-h-0 overflow-hidden bg-[#1c082e]/90 border border-purple-900/50 rounded-2xl shadow-2xl p-1">
+        
+        {/* Анимированный 3D бросок кубика по центру игрового поля для всех участников */}
+        {isRolling && (
+          <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-slate-950/50 backdrop-blur-[3px] rounded-2xl animate-in fade-in zoom-in-90 duration-200 pointer-events-none">
+            <div className="bg-slate-900/95 border-2 border-amber-400 p-5 rounded-3xl shadow-2xl shadow-amber-500/40 flex flex-col items-center space-y-3">
+              <Dice3DContainer value={diceValue} isRolling={isRolling} size={56} />
+              <span className="text-xs font-mono font-black text-amber-300 uppercase tracking-widest animate-pulse">
+                🎲 Бросок кубика ({activePlayer.name})...
+              </span>
+            </div>
+          </div>
+        )}
+
         <svg
           viewBox={viewBoxValue}
           preserveAspectRatio="xMidYMid meet"

@@ -64,7 +64,9 @@ const advanceTurn = (room) => {
 
 io.on('connection', (socket) => {
   socket.emit('rooms_list', getPublicRooms());
-
+  socket.on('player_start_rolling_dice', ({ roomId, rollerName }) => {
+    socket.to(roomId).emit('player_dice_rolling', { rollerName });
+  });
   socket.on('get_rooms', () => {
     socket.emit('rooms_list', getPublicRooms());
   });

@@ -218,6 +218,13 @@ export const GameScreen: FC<GameScreenProps> = ({
       setTradeWaitingMessage('');
     });
 
+    // Синхронный старт вращения кубика для наблюдателей
+    socket.on('player_dice_rolling', () => {
+      soundManager.playDiceRoll();
+      setIsRolling(true);
+      setDiceValue(null);
+    });
+
     // Синхронизация глобальной победы в матче
     socket.on('game_victory', (data) => {
       soundManager.playVictory();
@@ -292,12 +299,12 @@ export const GameScreen: FC<GameScreenProps> = ({
       socket.off('sync_game_state');
       socket.off('deal_trade_offered');
       socket.off('deal_trade_closed');
+      socket.off('player_dice_rolling');
       socket.off('game_victory');
     };
   }, [roomId, player.userId]);
 
   const checkRatRaceEscape = (passive: number, expenses: number) => {
-    // Выход из Крысиных бегов возможен ТОЛЬКО если игрок на малом круге
     if (player.currentTrack !== 'RAT_RACE' || isOnFastTrack) return;
 
     if (passive > expenses && !showFastTrackTransition) {
@@ -399,6 +406,12 @@ export const GameScreen: FC<GameScreenProps> = ({
 
     soundManager.playDiceRoll();
     setIsRolling(true);
+
+    // Оповещаем наблюдателей о старте вращения кубика
+    socket.emit('player_start_rolling_dice', {
+      roomId,
+      rollerName: player.name
+    });
 
     setTimeout(() => {
       let dice1 = Math.floor(Math.random() * 6) + 1;
@@ -569,7 +582,7 @@ export const GameScreen: FC<GameScreenProps> = ({
         currentTile,
         cardData: openedCardData
       });
-    }, 400);
+    }, 650);
   };
 
   const handleBuyFastTrackDeal = (tile: FastTrackTile) => {
@@ -1064,6 +1077,8 @@ export const GameScreen: FC<GameScreenProps> = ({
           <GameBoard
             players={roomPlayers}
             activePlayerId={activeCurrentPlayer?.id}
+            diceValue={diceValue}
+            isRolling={isRolling}
           />
         </section>
 
