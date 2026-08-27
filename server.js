@@ -69,7 +69,7 @@ io.on('connection', (socket) => {
     socket.emit('rooms_list', getPublicRooms());
   });
 
-  // Запрос актуального состояния конкретного лобби (устраняет бесконечную загрузку)
+  // Запрос актуального состояния конкретного лобби
   socket.on('get_room_lobby_state', ({ roomId }) => {
     const room = rooms.get(roomId);
     if (room) {
@@ -280,7 +280,7 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('game_started', room);
   });
 
- socket.on('player_roll_dice', ({ roomId, diceValue, newPosition, fastTrackPosition, currentTrack, paydayAmount, currentTile, cardData }) => {
+  socket.on('player_roll_dice', ({ roomId, diceValue, newPosition, fastTrackPosition, currentTrack, paydayAmount, currentTile, cardData }) => {
     const room = rooms.get(roomId);
     if (!room) return;
 
@@ -398,8 +398,17 @@ io.on('connection', (socket) => {
       room.logs.unshift(logMessage);
     }
 
-    room.activeCardData = null;
     io.to(roomId).emit('sync_game_state', room);
+  });
+
+  // Обработчик победы в матче
+  socket.on('player_won_game', (victoryPayload) => {
+    const room = rooms.get(victoryPayload.roomId);
+    if (room) {
+      room.logs.unshift(`🏆 ${victoryPayload.winnerName} ПОБЕДИЛ В МАТЧЕ! (${victoryPayload.winReason})`);
+      io.to(victoryPayload.roomId).emit('sync_game_state', room);
+    }
+    io.to(victoryPayload.roomId).emit('game_victory', victoryPayload);
   });
 
   socket.on('disconnect', () => {
