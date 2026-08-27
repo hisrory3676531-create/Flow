@@ -822,7 +822,7 @@ export const GameScreen: FC<GameScreenProps> = ({
           card={activeDoodadCard}
           playerCash={player.cash}
           onPay={(amt) => {
-            soundManager.playExpenseSound();
+            soundManager.playCoinSound();
             socket.emit('player_update_financials', {
               roomId,
               updatedPlayer: {

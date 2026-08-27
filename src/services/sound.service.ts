@@ -2,12 +2,16 @@ class SoundService {
   private ctx: AudioContext | null = null;
   private isMuted: boolean = false;
   private diceAudio: HTMLAudioElement | null = null;
+  private coinAudio: HTMLAudioElement | null = null;
 
   constructor() {
     if (typeof window !== 'undefined') {
       try {
         this.diceAudio = new Audio('/sounds/dice-roll.mp3');
         this.diceAudio.preload = 'auto';
+
+        this.coinAudio = new Audio('/sounds/coins.mp3');
+        this.coinAudio.preload = 'auto';
       } catch (e) {
         console.warn('Audio preload error:', e);
       }
@@ -37,7 +41,7 @@ class SoundService {
     return this.isMuted;
   }
 
-  // 🎲 Реальный звук броска кубика из public/sounds/dice-roll.mp3
+  // 🎲 Звук броска кубика
   public playDiceRoll() {
     if (this.isMuted) return;
 
@@ -57,7 +61,27 @@ class SoundService {
     }
   }
 
-  // Запасной генератор броска на случай отсутствия .mp3
+  // 💰 Звук монет (Payday / Покупка / Благотворительность / Всякая всячина)
+  public playCoinSound() {
+    if (this.isMuted) return;
+
+    if (this.coinAudio) {
+      try {
+        this.coinAudio.currentTime = 0;
+        this.coinAudio.volume = 0.8;
+        this.coinAudio.play().catch(() => {
+          this.playSynthesizedCoins();
+        });
+        return;
+      } catch (e) {
+        this.playSynthesizedCoins();
+      }
+    } else {
+      this.playSynthesizedCoins();
+    }
+  }
+
+  // Синтез кубика (запасной)
   private playSynthesizedDiceRoll() {
     const ctx = this.getContext();
     if (!ctx) return;
@@ -79,9 +103,8 @@ class SoundService {
     }
   }
 
-  // 💰 Звон монет (Payday / Покупка актива / Доход)
-  public playCoinSound() {
-    if (this.isMuted) return;
+  // Синтез монет (запасной)
+  private playSynthesizedCoins() {
     const ctx = this.getContext();
     if (!ctx) return;
 
@@ -101,7 +124,7 @@ class SoundService {
     });
   }
 
-  // 💸 Списание средств / Расход / Штраф
+  // 💸 Расход / Штраф
   public playExpenseSound() {
     if (this.isMuted) return;
     const ctx = this.getContext();
@@ -143,7 +166,7 @@ class SoundService {
     osc.stop(ctx.currentTime + 0.35);
   }
 
-  // 🏆 Фанфары победы
+  // 🏆 Победа
   public playVictory() {
     if (this.isMuted) return;
     const ctx = this.getContext();
