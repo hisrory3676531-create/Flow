@@ -1,6 +1,18 @@
 class SoundService {
   private ctx: AudioContext | null = null;
   private isMuted: boolean = false;
+  private diceAudio: HTMLAudioElement | null = null;
+
+  constructor() {
+    if (typeof window !== 'undefined') {
+      try {
+        this.diceAudio = new Audio('/sounds/dice-roll.mp3');
+        this.diceAudio.preload = 'auto';
+      } catch (e) {
+        console.warn('Audio preload error:', e);
+      }
+    }
+  }
 
   private getContext(): AudioContext | null {
     if (typeof window === 'undefined') return null;
@@ -11,7 +23,7 @@ class SoundService {
       }
     }
     if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume();
+      this.ctx.resume().catch(() => {});
     }
     return this.ctx;
   }
@@ -25,9 +37,28 @@ class SoundService {
     return this.isMuted;
   }
 
-  // 🎲 Звук броска кубика
+  // 🎲 Реальный звук броска кубика из public/sounds/dice-roll.mp3
   public playDiceRoll() {
     if (this.isMuted) return;
+
+    if (this.diceAudio) {
+      try {
+        this.diceAudio.currentTime = 0;
+        this.diceAudio.volume = 0.75;
+        this.diceAudio.play().catch(() => {
+          this.playSynthesizedDiceRoll();
+        });
+        return;
+      } catch (e) {
+        this.playSynthesizedDiceRoll();
+      }
+    } else {
+      this.playSynthesizedDiceRoll();
+    }
+  }
+
+  // Запасной генератор броска на случай отсутствия .mp3
+  private playSynthesizedDiceRoll() {
     const ctx = this.getContext();
     if (!ctx) return;
 
@@ -48,13 +79,13 @@ class SoundService {
     }
   }
 
-  // 💰 Звон монет (Payday / Доход / Покупка актива)
+  // 💰 Звон монет (Payday / Покупка актива / Доход)
   public playCoinSound() {
     if (this.isMuted) return;
     const ctx = this.getContext();
     if (!ctx) return;
 
-    const notes = [987.77, 1318.51]; // B5, E6
+    const notes = [987.77, 1318.51];
     notes.forEach((freq, idx) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -100,8 +131,8 @@ class SoundService {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
-    osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1); // E5
+    osc.frequency.setValueAtTime(523.25, ctx.currentTime);
+    osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1);
 
     gain.gain.setValueAtTime(0.2, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
@@ -118,7 +149,7 @@ class SoundService {
     const ctx = this.getContext();
     if (!ctx) return;
 
-    const notes = [523.25, 659.25, 783.99, 1046.50]; // C - E - G - C
+    const notes = [523.25, 659.25, 783.99, 1046.5];
     notes.forEach((freq, idx) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
