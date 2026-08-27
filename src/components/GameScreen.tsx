@@ -257,7 +257,10 @@ export const GameScreen: FC<GameScreenProps> = ({
   }, [roomId, player.userId]);
 
   const checkRatRaceEscape = (passive: number, expenses: number) => {
-    if (player.currentTrack === 'RAT_RACE' && passive > expenses && !showFastTrackTransition) {
+    // Выход из Крысиных бегов возможен ТОЛЬКО если игрок на малом круге
+    if (player.currentTrack !== 'RAT_RACE' || isOnFastTrack) return;
+
+    if (passive > expenses && !showFastTrackTransition) {
       soundManager.playVictory();
       setShowFastTrackTransition(true);
       addLog(`🚀 ${player.name} ВЫХОДИТ ИЗ КРЫСИНЫХ БЕГОВ НА СКОРОСТНУЮ ДОРОЖКУ!`);
@@ -1068,7 +1071,7 @@ export const GameScreen: FC<GameScreenProps> = ({
       </main>
 
       {/* Модальное окно перехода на Скоростную дорожку */}
-      {showFastTrackTransition && (
+      {showFastTrackTransition && !isOnFastTrack && (
         <FastTrackTransitionModal
           player={player}
           onEnterFastTrack={handleEnterFastTrack}
