@@ -5,6 +5,7 @@ import type { RatColor } from './ProfileSetupScreen';
 import { GameBoard, BoardPlayer } from './GameBoard';
 import { FinancialStatementPanel } from './FinancialStatementPanel';
 import { BOARD_TILES } from '../data/board.data';
+import { FAST_TRACK_TILES, FastTrackTile } from '../data/fastTrack.data';
 import { DealModal } from './DealModal';
 import { DoodadModal } from './DoodadModal';
 import { MarketModal } from './MarketModal';
@@ -15,6 +16,8 @@ import { VictoryModal } from './VictoryModal';
 import { BabyModal } from './BabyModal';
 import { BankruptcyModal } from './BankruptcyModal';
 import { SpectatorCardModal } from './SpectatorCardModal';
+import { FastTrackTransitionModal } from './FastTrackTransitionModal';
+import { FastTrackDealModal } from './FastTrackDealModal';
 import { DealCard, DoodadCard, MarketCard, DOODADS, MARKET_CARDS } from '../data/cards.data';
 import { socket } from '../services/socket';
 import { soundManager } from '../services/sound.service';
@@ -38,7 +41,14 @@ export const GameScreen: FC<GameScreenProps> = ({
 }) => {
   const roomId = settings?.roomId || 'GAME-77';
 
-  const [player, setPlayer] = useState<Player>(initialPlayer);
+  const [player, setPlayer] = useState<Player>({
+    ...initialPlayer,
+    currentTrack: initialPlayer.currentTrack || 'RAT_RACE',
+    fastTrackPosition: initialPlayer.fastTrackPosition ?? 0,
+    fastTrackCashflow: initialPlayer.fastTrackCashflow ?? 0,
+    fastTrackInitialCashflow: initialPlayer.fastTrackInitialCashflow ?? 0
+  });
+
   const [diceValue, setDiceValue] = useState<number | null>(null);
   const [isRolling, setIsRolling] = useState(false);
   const [hasRolledThisTurn, setHasRolledThisTurn] = useState<boolean>(false);
@@ -58,9 +68,12 @@ export const GameScreen: FC<GameScreenProps> = ({
       name: initialPlayer.name,
       position: initialPlayer.boardPosition ?? 0,
       color: playerColor,
-      isCurrentTurn: true
+      isCurrentTurn: true,
+      isOnFastTrack: initialPlayer.currentTrack === 'FAST_TRACK',
+      fastTrackPosition: initialPlayer.fastTrackPosition ?? 0
     }
   ]);
+
   const [currentTurnIndex, setCurrentTurnIndex] = useState<number>(0);
   const [networkActiveCard, setNetworkActiveCard] = useState<any>(null);
   const [logs, setLogs] = useState<string[]>([
@@ -68,6 +81,7 @@ export const GameScreen: FC<GameScreenProps> = ({
     `[Режим ЗП] ${settings?.autoPayday ? 'Автоматическое начисление' : 'Ручное получение (кнопка)'}`
   ]);
 
+  // Модальные окна Малого круга
   const [activeDealModal, setActiveDealModal] = useState<boolean>(false);
   const [activeDoodadCard, setActiveDoodadCard] = useState<DoodadCard | null>(null);
   const [activeMarketCard, setActiveMarketCard] = useState<MarketCard | null>(null);
@@ -77,8 +91,13 @@ export const GameScreen: FC<GameScreenProps> = ({
   const [showVictoryModal, setShowVictoryModal] = useState<boolean>(false);
   const [showBabyModal, setShowBabyModal] = useState<boolean>(false);
 
+  // Модальные окна Fast Track
+  const [showFastTrackTransition, setShowFastTrackTransition] = useState<boolean>(false);
+  const [activeFastTrackDeal, setActiveFastTrackDeal] = useState<FastTrackTile | null>(null);
+
   const activeCurrentPlayer = roomPlayers[currentTurnIndex] || roomPlayers[0];
   const isMyTurn = activeCurrentPlayer?.id === player.id;
+  const isOnFastTrack = player.currentTrack === 'FAST_TRACK';
 
   const addLog = (msg: string) => {
     setLogs((prev) => [msg, ...prev]);
@@ -96,6 +115,7 @@ export const GameScreen: FC<GameScreenProps> = ({
     setShowCharityModal(false);
     setShowDownturnModal(false);
     setShowBabyModal(false);
+    setActiveFastTrackDeal(null);
     setHasRolledThisTurn(false);
     setDiceValue(null);
     setPendingPayday(0);
@@ -140,6 +160,10 @@ export const GameScreen: FC<GameScreenProps> = ({
         name: player.name,
         color: playerColor,
         boardPosition: player.boardPosition ?? 0,
+        currentTrack: player.currentTrack,
+        fastTrackPosition: player.fastTrackPosition ?? 0,
+        fastTrackCashflow: player.fastTrackCashflow ?? 0,
+        fastTrackInitialCashflow: player.fastTrackInitialCashflow ?? 0,
         cash: player.cash,
         financials: player.financials,
         assets: player.assets,
@@ -170,7 +194,9 @@ export const GameScreen: FC<GameScreenProps> = ({
             name: p.name,
             position: p.position ?? p.boardPosition ?? 0,
             color: p.color,
-            isCurrentTurn: p.isCurrentTurn
+            isCurrentTurn: p.isCurrentTurn,
+            isOnFastTrack: p.currentTrack === 'FAST_TRACK',
+            fastTrackPosition: p.fastTrackPosition ?? 0
           }))
         );
 
@@ -181,6 +207,10 @@ export const GameScreen: FC<GameScreenProps> = ({
             cash: me.cash,
             bankDebt: me.bankDebt ?? prev.bankDebt ?? 0,
             boardPosition: me.position ?? prev.boardPosition,
+            currentTrack: me.currentTrack ?? prev.currentTrack,
+            fastTrackPosition: me.fastTrackPosition ?? prev.fastTrackPosition ?? 0,
+            fastTrackCashflow: me.fastTrackCashflow ?? prev.fastTrackCashflow ?? 0,
+            fastTrackInitialCashflow: me.fastTrackInitialCashflow ?? prev.fastTrackInitialCashflow ?? 0,
             financials: me.financials ?? prev.financials,
             assets: me.assets ?? prev.assets
           }));
@@ -209,12 +239,55 @@ export const GameScreen: FC<GameScreenProps> = ({
     };
   }, [roomId, player.userId]);
 
-  const checkVictory = (passive: number, expenses: number) => {
-    if (passive > expenses && !showVictoryModal) {
+  // Проверка выхода на Fast Track в конце хода
+  const checkRatRaceEscape = (passive: number, expenses: number) => {
+    if (player.currentTrack === 'RAT_RACE' && passive > expenses && !showFastTrackTransition) {
       soundManager.playVictory();
-      setShowVictoryModal(true);
-      addLog(`🏆 ПОБЕДА! Пассивный доход ($${passive}) превысил расходы ($${expenses})!`);
+      setShowFastTrackTransition(true);
+      addLog(`🚀 ${player.name} ВЫХОДИТ ИЗ КРЫСИНЫХ БЕГОВ НА СКОРОСТНУЮ ДОРОЖКУ!`);
     }
+  };
+
+  // Переход на Скоростную дорожку
+  const handleEnterFastTrack = () => {
+    const fastIncome = player.financials.passiveIncome * 10;
+    const updatedPlayer: Partial<Player> = {
+      currentTrack: 'FAST_TRACK',
+      fastTrackPosition: 0,
+      fastTrackCashflow: fastIncome,
+      fastTrackInitialCashflow: fastIncome,
+      bankDebt: 0,
+      financials: {
+        ...player.financials,
+        salary: 0,
+        bankLoanPayment: 0,
+        taxes: 0,
+        otherExpenses: 0,
+        homeMortgagePayment: 0,
+        carLoanPayment: 0,
+        creditCardPayment: 0,
+        childCount: 0,
+        totalExpenses: 0,
+        monthlyCashflow: fastIncome
+      }
+    };
+
+    setPlayer((prev) => ({
+      ...prev,
+      ...updatedPlayer,
+      financials: updatedPlayer.financials!
+    }));
+
+    setShowFastTrackTransition(false);
+
+    socket.emit('player_update_financials', {
+      roomId,
+      updatedPlayer: {
+        userId: player.userId,
+        ...updatedPlayer
+      },
+      logMessage: `🌟 ${player.name} вступил на Fast Track со стартовым доходом $${fastIncome.toLocaleString()}/ход!`
+    });
   };
 
   const handleClaimManualPayday = () => {
@@ -244,12 +317,13 @@ export const GameScreen: FC<GameScreenProps> = ({
     socket.emit('player_end_turn', { roomId });
   };
 
+  // БРОСОК КУБИКА (РАЗДЕЛЕНИЕ ДЛЯ RAT RACE И FAST TRACK)
   const handleRollDice = () => {
     if (!isMyTurn || hasRolledThisTurn) return;
 
     if (skipTurnsLeft > 0) {
       setSkipTurnsLeft((prev) => prev - 1);
-      addLog(`🛑 Вы отбываете увольнение. Пропущен ход (Осталось: ${skipTurnsLeft - 1})`);
+      addLog(`🛑 Вы отбываете штраф. Пропущен ход (Осталось: ${skipTurnsLeft - 1})`);
       handleEndTurn();
       return;
     }
@@ -258,18 +332,132 @@ export const GameScreen: FC<GameScreenProps> = ({
     setIsRolling(true);
 
     setTimeout(() => {
-      const dice1 = Math.floor(Math.random() * 6) + 1;
-      const dice2 = charityTurnsLeft > 0 ? Math.floor(Math.random() * 6) + 1 : 0;
-      const totalDice = dice1 + dice2;
+      let dice1 = Math.floor(Math.random() * 6) + 1;
+      let dice2 = 0;
+      let dice3 = 0;
 
-      if (charityTurnsLeft > 0) {
-        setCharityTurnsLeft((prev) => prev - 1);
+      if (isOnFastTrack) {
+        // На Fast Track бросают сразу 2 кубика (или 3 при пожертвовании)
+        dice2 = Math.floor(Math.random() * 6) + 1;
+        if (charityTurnsLeft > 0) {
+          dice3 = Math.floor(Math.random() * 6) + 1;
+          setCharityTurnsLeft((prev) => prev - 1);
+        }
+      } else {
+        // На Малом круге 1 кубик (или 2 при благотворительности)
+        if (charityTurnsLeft > 0) {
+          dice2 = Math.floor(Math.random() * 6) + 1;
+          setCharityTurnsLeft((prev) => prev - 1);
+        }
       }
 
+      const totalDice = dice1 + dice2 + dice3;
       setDiceValue(totalDice);
       setIsRolling(false);
       setHasRolledThisTurn(true);
 
+      // -------------------------------------------------------------
+      // 1. ХОД НА СКОРОСТНОЙ ДОРОЖКЕ (FAST TRACK - 30 КЛЕТОК)
+      // -------------------------------------------------------------
+      if (isOnFastTrack) {
+        const oldPos = player.fastTrackPosition ?? 0;
+        const newPos = (oldPos + totalDice) % 30;
+        const currentTile = FAST_TRACK_TILES[newPos];
+
+        // Проверка прохождения через День Инвестора
+        let passedPaydayCount = 0;
+        for (let step = 1; step <= totalDice; step++) {
+          const stepPos = (oldPos + step) % 30;
+          if (FAST_TRACK_TILES[stepPos]?.type === 'PAYDAY') {
+            passedPaydayCount++;
+          }
+        }
+
+        let paydayEarned = 0;
+        if (passedPaydayCount > 0) {
+          paydayEarned = (player.fastTrackCashflow || 0) * passedPaydayCount;
+          addLog(`💰 Пройден сектор Дня Инвестора! Получено +$${paydayEarned.toLocaleString()}`);
+        }
+
+        let openedCardData: any = { cardType: currentTile.title };
+
+        if (currentTile.type === 'BUSINESS') {
+          setActiveFastTrackDeal(currentTile);
+          openedCardData = currentTile;
+        } else if (currentTile.type === 'DREAM') {
+          // Попадание на Мечту
+          if (currentTile.dreamId === player.dream.id || currentTile.title === player.dream.title) {
+            if (player.cash >= (currentTile.cost || 0)) {
+              soundManager.playVictory();
+              setShowVictoryModal(true);
+              addLog(`🏆 АБСОЛЮТНАЯ ПОБЕДА! ${player.name} выкупил свою Мечту «${currentTile.title}»!`);
+            } else {
+              addLog(`🌟 Сектор вашей Мечты! Нужно $${currentTile.cost?.toLocaleString()}, у вас $${player.cash.toLocaleString()}`);
+              setTimeout(handleEndTurn, 1500);
+            }
+          } else {
+            addLog(`📍 Сектор чужой мечты: «${currentTile.title}».`);
+            setTimeout(handleEndTurn, 1200);
+          }
+        } else if (currentTile.type === 'TAX_AUDIT') {
+          soundManager.playExpenseSound();
+          const taxAmt = Math.round(player.cash * 0.2);
+          addLog(`⚖️ Налоговый аудит! Списано 20% наличных: -$${taxAmt.toLocaleString()}`);
+          socket.emit('player_update_financials', {
+            roomId,
+            updatedPlayer: {
+              userId: player.userId,
+              cash: Math.max(0, player.cash - taxAmt)
+            },
+            logMessage: `⚖️ ${player.name} оплатил налоговый аудит: -$${taxAmt.toLocaleString()}`
+          });
+          setTimeout(handleEndTurn, 1200);
+        } else if (currentTile.type === 'LAWSUIT') {
+          soundManager.playExpenseSound();
+          const lawsuitCost = 50000;
+          addLog(`🏛️ Судебный иск! Штраф: -$${lawsuitCost.toLocaleString()}`);
+          socket.emit('player_update_financials', {
+            roomId,
+            updatedPlayer: {
+              userId: player.userId,
+              cash: Math.max(0, player.cash - lawsuitCost)
+            },
+            logMessage: `🏛️ ${player.name} выплатил судебный иск: -$${lawsuitCost.toLocaleString()}`
+          });
+          setTimeout(handleEndTurn, 1200);
+        } else if (currentTile.type === 'DONATION') {
+          soundManager.playCoinSound();
+          addLog(`🤝 Фонд Fast Track: пожертвование $50,000 дает бросок 3 кубиков на 3 хода.`);
+          setCharityTurnsLeft(3);
+          socket.emit('player_update_financials', {
+            roomId,
+            updatedPlayer: {
+              userId: player.userId,
+              cash: Math.max(0, player.cash - 50000)
+            },
+            logMessage: `🤝 ${player.name} пожертвовал в фонд $50,000!`
+          });
+          setTimeout(handleEndTurn, 1200);
+        } else if (currentTile.type === 'PAYDAY') {
+          setTimeout(handleEndTurn, 1200);
+        }
+
+        socket.emit('player_roll_dice', {
+          roomId,
+          diceValue: totalDice,
+          newPosition: newPos,
+          currentTrack: 'FAST_TRACK',
+          paydayAmount: paydayEarned,
+          currentTile,
+          cardData: openedCardData
+        });
+
+        return;
+      }
+
+      // -------------------------------------------------------------
+      // 2. ХОД НА МАЛОМ КРУГЕ (RAT RACE - 24 КЛЕТКИ)
+      // -------------------------------------------------------------
       const oldPos = player.boardPosition ?? 0;
       const newPos = (oldPos + totalDice) % 24;
       const currentTile = BOARD_TILES[newPos];
@@ -327,11 +515,52 @@ export const GameScreen: FC<GameScreenProps> = ({
         roomId,
         diceValue: totalDice,
         newPosition: newPos,
+        currentTrack: 'RAT_RACE',
         paydayAmount: paydayEarned,
         currentTile,
         cardData: openedCardData
       });
     }, 400);
+  };
+
+  // Покупка бизнеса на Fast Track
+  const handleBuyFastTrackDeal = (tile: FastTrackTile) => {
+    soundManager.playCoinSound();
+    const cost = tile.cost || 0;
+    const addedCashflow = tile.cashflow || 0;
+
+    const newAsset: Asset = {
+      id: 'ft_ast_' + Date.now(),
+      title: tile.title,
+      type: 'FAST_TRACK_BIZ',
+      cost,
+      cashflow: addedCashflow,
+      downPayment: cost
+    };
+
+    const updatedCash = player.cash - cost;
+    const updatedFastCashflow = (player.fastTrackCashflow || 0) + addedCashflow;
+
+    socket.emit('player_update_financials', {
+      roomId,
+      updatedPlayer: {
+        userId: player.userId,
+        cash: updatedCash,
+        fastTrackCashflow: updatedFastCashflow,
+        assets: [...player.assets, newAsset]
+      },
+      logMessage: `🏢 ${player.name} приобрел бизнес: «${tile.title}» (++$${addedCashflow.toLocaleString()}/ход)!`
+    });
+
+    // Условие победы #2: увеличение потока на Fast Track на +$50,000 от стартового
+    const flowGain = updatedFastCashflow - (player.fastTrackInitialCashflow || 0);
+    if (flowGain >= 50000) {
+      soundManager.playVictory();
+      setShowVictoryModal(true);
+      addLog(`🏆 АБСОЛЮТНАЯ ПОБЕДА! ${player.name} увеличил Fast Track поток на +$${flowGain.toLocaleString()}!`);
+    }
+
+    finishTurnAction();
   };
 
   const handleBuyDeal = (deal: DealCard, stockCount?: number, borrowedAmount: number = 0) => {
@@ -379,7 +608,7 @@ export const GameScreen: FC<GameScreenProps> = ({
       logMessage: `✅ ${player.name} купил: «${deal.title}» (+${addedCashflow}$/мес)`
     });
 
-    checkVictory(updatedPassive, newTotalExpenses);
+    checkRatRaceEscape(updatedPassive, newTotalExpenses);
     finishTurnAction();
   };
 
@@ -465,7 +694,6 @@ export const GameScreen: FC<GameScreenProps> = ({
     if (isMyTurn) finishTurnAction();
   };
 
-  // 1. РОЖДЕНИЕ РЕБЕНКА -> ЗВУК МОНЕТ
   const handleConfirmBaby = () => {
     soundManager.playCoinSound();
     if (player.financials.childCount < 3) {
@@ -491,7 +719,6 @@ export const GameScreen: FC<GameScreenProps> = ({
     finishTurnAction();
   };
 
-  // 2. БЛАГОТВОРИТЕЛЬНОСТЬ -> ЗВУК МОНЕТ
   const handleDonateCharity = (amount: number) => {
     soundManager.playCoinSound();
     socket.emit('player_update_financials', {
@@ -675,6 +902,11 @@ export const GameScreen: FC<GameScreenProps> = ({
           <span className="text-[10px] font-mono bg-purple-950 border border-purple-700/60 px-1.5 py-0.5 rounded text-purple-300">
             #{roomId}
           </span>
+          {isOnFastTrack && (
+            <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950">
+              FAST TRACK
+            </span>
+          )}
         </div>
 
         <div className="flex items-center space-x-2">
@@ -704,13 +936,15 @@ export const GameScreen: FC<GameScreenProps> = ({
             </span>
           </div>
 
-          <button
-            onClick={() => setShowBankModal(true)}
-            className="bg-emerald-500/20 border border-emerald-500/40 hover:bg-emerald-500/30 text-emerald-400 font-bold px-2 py-0.5 rounded-lg text-[10px] transition cursor-pointer flex items-center space-x-1"
-          >
-            <span>🏦</span>
-            <span>Банк</span>
-          </button>
+          {!isOnFastTrack && (
+            <button
+              onClick={() => setShowBankModal(true)}
+              className="bg-emerald-500/20 border border-emerald-500/40 hover:bg-emerald-500/30 text-emerald-400 font-bold px-2 py-0.5 rounded-lg text-[10px] transition cursor-pointer flex items-center space-x-1"
+            >
+              <span>🏦</span>
+              <span>Банк</span>
+            </button>
+          )}
 
           <button
             onClick={onRestart}
@@ -757,7 +991,7 @@ export const GameScreen: FC<GameScreenProps> = ({
           />
         </div>
 
-        {pendingPayday > 0 && isMyTurn && (
+        {pendingPayday > 0 && isMyTurn && !isOnFastTrack && (
           <div className="absolute bottom-20 lg:bottom-8 left-1/2 -translate-x-1/2 z-40 animate-bounce">
             <button
               onClick={handleClaimManualPayday}
@@ -769,6 +1003,24 @@ export const GameScreen: FC<GameScreenProps> = ({
           </div>
         )}
       </main>
+
+      {/* Модальное окно перехода на Скоростную дорожку */}
+      {showFastTrackTransition && (
+        <FastTrackTransitionModal
+          player={player}
+          onEnterFastTrack={handleEnterFastTrack}
+        />
+      )}
+
+      {/* Модальное окно покупки бизнеса на Fast Track */}
+      {isMyTurn && activeFastTrackDeal && (
+        <FastTrackDealModal
+          tile={activeFastTrackDeal}
+          playerCash={player.cash}
+          onBuy={handleBuyFastTrackDeal}
+          onPass={finishTurnAction}
+        />
+      )}
 
       {!isMarketDismissed && (activeMarketCard || (networkActiveCard && (networkActiveCard.cardType === 'Рынок' || networkActiveCard.targetType === 'SPLIT' || networkActiveCard.offerPrice || networkActiveCard.targetType === 'STOCK' || networkActiveCard.targetType === 'REAL_ESTATE'))) && (
         <MarketModal
@@ -800,7 +1052,6 @@ export const GameScreen: FC<GameScreenProps> = ({
         />
       )}
 
-      {/* 3. ВСЯКАЯ ВСЯЧИНА -> ЗВУК МОНЕТ */}
       {isMyTurn && activeDoodadCard && (
         <DoodadModal
           card={activeDoodadCard}

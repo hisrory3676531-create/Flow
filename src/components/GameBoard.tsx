@@ -1,14 +1,17 @@
 import { useState, useEffect } from 'react';
 import type { FC } from 'react';
 import { BOARD_TILES, BoardTile } from '../data/board.data';
+import { FAST_TRACK_TILES, FastTrackTile } from '../data/fastTrack.data';
 import type { RatColor } from './ProfileSetupScreen';
 
 export interface BoardPlayer {
   id: string;
   name: string;
   position: number;
-  color: RatColor;
-  isCurrentTurn: boolean;
+  color?: RatColor;
+  isCurrentTurn?: boolean;
+  isOnFastTrack?: boolean;
+  fastTrackPosition?: number;
 }
 
 interface GameBoardProps {
@@ -23,8 +26,8 @@ export const GameBoard: FC<GameBoardProps> = ({
   const TOTAL_TILES = 24;
   const CENTER_X = 600;
   const CENTER_Y = 375;
-  const INNER_R = 175;
-  const OUTER_R = 305;
+  const INNER_R = 145;
+  const OUTER_R = 255;
 
   const [isMobile, setIsMobile] = useState(false);
 
@@ -40,7 +43,9 @@ export const GameBoard: FC<GameBoardProps> = ({
   const safePlayers = Array.isArray(players)
     ? players.filter(Boolean).map((p) => ({
         ...p,
-        position: p?.position ?? 0
+        position: p?.position ?? 0,
+        fastTrackPosition: p?.fastTrackPosition ?? 0,
+        isOnFastTrack: Boolean(p?.isOnFastTrack)
       }))
     : [];
 
@@ -48,12 +53,18 @@ export const GameBoard: FC<GameBoardProps> = ({
     id: 'default',
     name: 'Игрок',
     position: 0,
+    fastTrackPosition: 0,
+    isOnFastTrack: false,
     color: { id: 'purple', name: 'Фиолетовая', hex: '#a855f7', bgClass: '', borderClass: '', textClass: '' },
     isCurrentTurn: true
   };
 
-  const currentTile = BOARD_TILES[activePlayer.position] || BOARD_TILES[0];
+  const currentRatTile = BOARD_TILES[activePlayer.position] || BOARD_TILES[0];
+  const currentFastTile = FAST_TRACK_TILES[activePlayer.fastTrackPosition] || FAST_TRACK_TILES[0];
+  const currentTileTitle = activePlayer.isOnFastTrack ? currentFastTile.title : currentRatTile.title;
+  const currentTilePosition = activePlayer.isOnFastTrack ? activePlayer.fastTrackPosition : activePlayer.position;
 
+  // Секторы для круглого малого круга
   const getSectorPath = (index: number) => {
     const angleStep = (2 * Math.PI) / TOTAL_TILES;
     const startAngle = index * angleStep - Math.PI / 2;
@@ -90,71 +101,171 @@ export const GameBoard: FC<GameBoardProps> = ({
     }
   };
 
-  // На мобильном берем плотный квадрат ровно по границам внешнего круга
-  const viewBoxValue = isMobile ? '280 55 640 640' : '0 0 1200 750';
+  const getFastTrackTileFill = (tile: FastTrackTile) => {
+    switch (tile.type) {
+      case 'PAYDAY': return '#064e3b';
+      case 'BUSINESS': return '#0c4a6e';
+      case 'DREAM': return '#78350f';
+      case 'TAX_AUDIT': return '#7f1d1d';
+      case 'LAWSUIT': return '#831843';
+      case 'DONATION': return '#4c1d95';
+      default: return '#1e1b4b';
+    }
+  };
+
+  // Координаты для 30 ячеек внешнего прямоугольного кольца Fast Track
+  const getFastTrackRect = (index: number) => {
+    const W = 110;
+    const H = 64;
+    const LEFT_X = 25;
+    const RIGHT_X = 1065;
+    const TOP_Y = 25;
+    const BOTTOM_Y = 660;
+
+    // Верхний ряд: 0 -> 9 (слева направо)
+    if (index >= 0 && index <= 9) {
+      const x = LEFT_X + index * 115.5;
+      return { x, y: TOP_Y, w: 112, h: H, center: { x: x + 56, y: TOP_Y + 32 } };
+    }
+    // Правый ряд: 10 -> 14 (сверху вниз)
+    if (index >= 10 && index <= 14) {
+      const sub = index - 9;
+      const y = TOP_Y + sub * 105.8;
+      return { x: RIGHT_X, y, w: W, h: 102, center: { x: RIGHT_X + 55, y: y + 51 } };
+    }
+    // Нижний ряд: 15 -> 24 (справа налево)
+    if (index >= 15 && index <= 24) {
+      const sub = index - 15;
+      const x = RIGHT_X - sub * 115.5;
+      return { x, y: BOTTOM_Y, w: 112, h: H, center: { x: x + 56, y: BOTTOM_Y + 32 } };
+    }
+    // Левый ряд: 25 -> 29 (снизу вверх)
+    const sub = index - 24;
+    const y = BOTTOM_Y - sub * 105.8;
+    return { x: LEFT_X, y, w: W, h: 102, center: { x: LEFT_X + 55, y: y + 51 } };
+  };
+
+  const viewBoxValue = isMobile ? '290 65 620 620' : '0 0 1200 750';
 
   return (
-    <div className="bg-[#1c082e]/80 border border-purple-900/40 rounded-2xl p-1.5 sm:p-3 flex flex-col justify-between shadow-2xl w-full h-full overflow-hidden">
-      {/* Верхний статус */}
+    <div className="bg-[#1c082e]/90 border border-purple-900/50 rounded-2xl p-1.5 sm:p-3 flex flex-col justify-between shadow-2xl w-full h-full overflow-hidden select-none">
+      {/* Верхний статус-бар */}
       <div className="flex items-center justify-between gap-1 border-b border-purple-800/40 pb-1.5 px-1 shrink-0">
-        <div className="flex items-center space-x-1">
-          <span className="text-[11px] font-black text-amber-300">CASHFLOW</span>
+        <div className="flex items-center space-x-1.5">
+          <span className="text-[11px] font-black text-amber-300 tracking-wider">CASHFLOW</span>
+          <span className="text-[9px] px-1.5 py-0.2 rounded bg-purple-950 border border-purple-700/60 font-mono text-purple-300">
+            {activePlayer.isOnFastTrack ? 'FAST TRACK' : 'МАЛЫЙ КРУГ'}
+          </span>
         </div>
 
-        <div className="flex items-center space-x-1 overflow-x-auto py-0.5 max-w-[65%]">
+        <div className="flex items-center space-x-1 overflow-x-auto py-0.5 max-w-[60%]">
           {safePlayers.map((p) => (
             <div
               key={p.id}
               className={`flex items-center space-x-1 px-1.5 py-0.5 rounded-md text-[10px] border shrink-0 ${
                 p.id === activePlayer.id
-                  ? 'border-amber-400 bg-amber-400/20 text-amber-300 font-bold'
+                  ? 'border-amber-400 bg-amber-400/20 text-amber-300 font-bold shadow-sm'
                   : 'border-slate-800 bg-slate-950/80 text-slate-400'
               }`}
             >
               <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.color?.hex || '#a855f7' }} />
               <span className="truncate max-w-[50px]">{p.name}</span>
-              <span className="text-[9px] opacity-75 font-mono">#{p.position}</span>
+              <span className="text-[9px] opacity-75 font-mono">
+                {p.isOnFastTrack ? `🚀#${p.fastTrackPosition}` : `🐀#${p.position}`}
+              </span>
             </div>
           ))}
         </div>
 
         <div className="text-[10px] font-mono font-bold text-emerald-400 shrink-0">
-          #{activePlayer.position} {currentTile.title}
+          #{currentTilePosition} {currentTileTitle}
         </div>
       </div>
 
-      {/* SVG Canvas */}
+      {/* Основной SVG Canvas */}
       <div className="relative w-full flex-1 flex items-center justify-center min-h-0 overflow-hidden py-1">
         <svg
           viewBox={viewBoxValue}
           preserveAspectRatio="xMidYMid meet"
           className="w-full h-full max-h-full select-none"
         >
-          {/* Фон скоростной дорожки на ПК */}
-          {!isMobile && (
-            <rect
-              x="15"
-              y="15"
-              width="1170"
-              height="720"
-              rx="28"
-              fill="#12041f"
-              stroke="#eab308"
-              strokeWidth="3.5"
-            />
-          )}
+          {/* ФОН ДОСКИ */}
+          <rect
+            x="10"
+            y="10"
+            width="1180"
+            height="730"
+            rx="24"
+            fill="#10031c"
+            stroke="#4c1d95"
+            strokeWidth="2"
+          />
 
-          {/* Фоновый круг */}
-          <circle cx={CENTER_X} cy={CENTER_Y} r={OUTER_R + 6} fill="#2e0854" stroke="#eab308" strokeWidth="3.5" />
-          <circle cx={CENTER_X} cy={CENTER_Y} r={INNER_R - 5} fill="#120324" stroke="#a855f7" strokeWidth="2.5" />
+          {/* ВНЕШНИЙ ТРЕК: FAST TRACK (30 ЯЧЕЕК) */}
+          {!isMobile &&
+            FAST_TRACK_TILES.map((tile) => {
+              const r = getFastTrackRect(tile.id);
+              const isTargeted = activePlayer.isOnFastTrack && activePlayer.fastTrackPosition === tile.id;
+
+              return (
+                <g key={`ft_${tile.id}`}>
+                  <rect
+                    x={r.x}
+                    y={r.y}
+                    width={r.w}
+                    height={r.h}
+                    rx="10"
+                    fill={getFastTrackTileFill(tile)}
+                    stroke={isTargeted ? (activePlayer.color?.hex || '#f59e0b') : tile.color}
+                    strokeWidth={isTargeted ? '3.5' : '1.5'}
+                  />
+
+                  <text
+                    x={r.center.x}
+                    y={r.center.y - 8}
+                    textAnchor="middle"
+                    fontSize="13"
+                  >
+                    {tile.icon}
+                  </text>
+
+                  <text
+                    x={r.center.x}
+                    y={r.center.y + 7}
+                    textAnchor="middle"
+                    fill="#f8fafc"
+                    fontSize="7.5"
+                    fontWeight="800"
+                    fontFamily="sans-serif"
+                  >
+                    {tile.title.length > 15 ? `${tile.title.slice(0, 14)}...` : tile.title}
+                  </text>
+
+                  <text
+                    x={r.center.x}
+                    y={r.center.y + 17}
+                    textAnchor="middle"
+                    fill="#94a3b8"
+                    fontSize="6"
+                    fontWeight="bold"
+                    fontFamily="monospace"
+                  >
+                    {tile.cost ? `$${tile.cost.toLocaleString()}` : `#${tile.id}`}
+                  </text>
+                </g>
+              );
+            })}
+
+          {/* ВНУТРЕННИЙ КРУГ: МАЛЫЙ КРУГ «КРЫСИНЫЕ БЕГА» */}
+          <circle cx={CENTER_X} cy={CENTER_Y} r={OUTER_R + 5} fill="#230640" stroke="#eab308" strokeWidth="3" />
+          <circle cx={CENTER_X} cy={CENTER_Y} r={INNER_R - 4} fill="#0d0218" stroke="#a855f7" strokeWidth="2" />
 
           {/* 24 сектора малого круга */}
           {BOARD_TILES.map((tile, i) => {
             const path = getSectorPath(i);
             const deg = getSectorAngle(i);
-            const isTargeted = activePlayer.position === i;
+            const isTargeted = !activePlayer.isOnFastTrack && activePlayer.position === i;
 
-            // Разворачиваем текст, если он попадает в нижнюю полусферу (от 90 до 270 град)
             const isBottomHalf = deg > 90 && deg < 270;
             const textRotation = isBottomHalf ? deg + 180 : deg;
             const textYOffset = isBottomHalf ? (INNER_R + OUTER_R) / 2 : -((INNER_R + OUTER_R) / 2);
@@ -165,17 +276,17 @@ export const GameBoard: FC<GameBoardProps> = ({
                   d={path}
                   fill={getTileFill(tile.type)}
                   stroke={isTargeted ? (activePlayer.color?.hex || '#eab308') : '#4c1d95'}
-                  strokeWidth={isTargeted ? '4.5' : '1.5'}
+                  strokeWidth={isTargeted ? '4' : '1.2'}
                 />
 
                 {/* Номер и Иконка */}
                 <g transform={`translate(${CENTER_X}, ${CENTER_Y}) rotate(${deg})`}>
                   <text
                     x="0"
-                    y={-OUTER_R + 13}
+                    y={-OUTER_R + 11}
                     textAnchor="middle"
                     fill="#cbd5e1"
-                    fontSize="7"
+                    fontSize="6.5"
                     fontFamily="monospace"
                     fontWeight="bold"
                   >
@@ -183,22 +294,22 @@ export const GameBoard: FC<GameBoardProps> = ({
                   </text>
                   <text
                     x="0"
-                    y={-INNER_R + 14}
+                    y={-INNER_R + 12}
                     textAnchor="middle"
-                    fontSize="10"
+                    fontSize="9"
                   >
                     {tile.icon}
                   </text>
                 </g>
 
-                {/* Название сектора (всегда ориентировано читаемо) */}
+                {/* Название сектора */}
                 <g transform={`translate(${CENTER_X}, ${CENTER_Y}) rotate(${textRotation})`}>
                   <text
                     x="0"
-                    y={textYOffset + 3}
+                    y={textYOffset + 2.5}
                     textAnchor="middle"
                     fill="#ffffff"
-                    fontSize="7.5"
+                    fontSize="6.5"
                     fontWeight="800"
                     letterSpacing="0.2"
                   >
@@ -211,41 +322,43 @@ export const GameBoard: FC<GameBoardProps> = ({
 
           {/* Центр круга */}
           <g transform={`translate(${CENTER_X}, ${CENTER_Y})`}>
-            <circle cx="0" cy="0" r="145" fill="#240742" stroke="#f59e0b" strokeWidth="3" />
-            <text x="0" y="-70" textAnchor="middle" fill="#facc15" fontSize="24" fontWeight="900" letterSpacing="1.5">
+            <circle cx="0" cy="0" r="120" fill="#1b0533" stroke="#f59e0b" strokeWidth="2.5" />
+            <text x="0" y="-55" textAnchor="middle" fill="#facc15" fontSize="20" fontWeight="900" letterSpacing="1.5">
               CASHFLOW
             </text>
-            <text x="0" y="-52" textAnchor="middle" fill="#e2e8f0" fontSize="8.5" fontWeight="bold">
-              КАК ВЫРВАТЬСЯ ИЗ КРЫСИНЫХ БЕГОВ
+            <text x="0" y="-40" textAnchor="middle" fill="#cbd5e1" fontSize="7" fontWeight="bold">
+              ВЫХОД ИЗ КРЫСИНЫХ БЕГОВ
             </text>
 
-            <text x="0" y="22" textAnchor="middle" fontSize="64">
+            <text x="0" y="16" textAnchor="middle" fontSize="48">
               🐀
             </text>
 
-            <rect x="-70" y="60" width="140" height="22" rx="11" fill="#090314" stroke="#eab308" strokeWidth="1.5" />
-            <text x="0" y="75" textAnchor="middle" fill="#4ade80" fontSize="9.5" fontWeight="bold" fontFamily="monospace">
+            <rect x="-55" y="48" width="110" height="18" rx="9" fill="#090314" stroke="#eab308" strokeWidth="1" />
+            <text x="0" y="60" textAnchor="middle" fill="#4ade80" fontSize="8" fontWeight="bold" fontFamily="monospace">
               МАЛЫЙ КРУГ
             </text>
           </g>
 
-          {/* Мультиплеерные фишки игроков */}
+          {/* ФИШКИ ИГРОКОВ: МАЛЫЙ КРУГ */}
           {BOARD_TILES.map((tile) => {
-            const playersOnTile = safePlayers.filter((p) => (p.position ?? 0) === tile.id);
+            const playersOnTile = safePlayers.filter(
+              (p) => !p.isOnFastTrack && (p.position ?? 0) === tile.id
+            );
             if (playersOnTile.length === 0) return null;
 
             const deg = getSectorAngle(tile.id);
             const rad = ((deg - 90) * Math.PI) / 180;
-            const markerR = OUTER_R - 22;
+            const markerR = OUTER_R - 18;
 
             const posX = CENTER_X + markerR * Math.cos(rad);
             const posY = CENTER_Y + markerR * Math.sin(rad);
 
             return (
-              <g key={`players-tile-${tile.id}`} transform={`translate(${posX}, ${posY})`}>
+              <g key={`rat-players-tile-${tile.id}`} transform={`translate(${posX}, ${posY})`}>
                 {playersOnTile.map((p, idx) => {
-                  const offsetX = ((idx % 3) - 1) * 12;
-                  const offsetY = Math.floor(idx / 3) * 12 - 5;
+                  const offsetX = ((idx % 3) - 1) * 11;
+                  const offsetY = Math.floor(idx / 3) * 11 - 4;
                   const isCur = p.id === activePlayer.id;
 
                   return (
@@ -254,27 +367,27 @@ export const GameBoard: FC<GameBoardProps> = ({
                         <circle
                           cx="0"
                           cy="0"
-                          r="11"
+                          r="10"
                           fill="none"
                           stroke="#ffffff"
-                          strokeWidth="2"
+                          strokeWidth="1.8"
                           className="animate-ping opacity-75"
                         />
                       )}
                       <circle
                         cx="0"
                         cy="0"
-                        r="7.5"
+                        r="6.5"
                         fill={p.color?.hex || '#ec4899'}
                         stroke="#0f172a"
-                        strokeWidth="1.5"
+                        strokeWidth="1.2"
                       />
                       <text
                         x="0"
-                        y="2.5"
+                        y="2"
                         textAnchor="middle"
                         fill="#020617"
-                        fontSize="6.5"
+                        fontSize="5.5"
                         fontWeight="900"
                         fontFamily="sans-serif"
                       >
@@ -286,6 +399,62 @@ export const GameBoard: FC<GameBoardProps> = ({
               </g>
             );
           })}
+
+          {/* ФИШКИ ИГРОКОВ: FAST TRACK */}
+          {!isMobile &&
+            FAST_TRACK_TILES.map((tile) => {
+              const playersOnTile = safePlayers.filter(
+                (p) => p.isOnFastTrack && (p.fastTrackPosition ?? 0) === tile.id
+              );
+              if (playersOnTile.length === 0) return null;
+
+              const r = getFastTrackRect(tile.id);
+
+              return (
+                <g key={`fast-players-tile-${tile.id}`} transform={`translate(${r.center.x}, ${r.center.y})`}>
+                  {playersOnTile.map((p, idx) => {
+                    const offsetX = ((idx % 2) - 0.5) * 16;
+                    const offsetY = Math.floor(idx / 2) * 14 - 4;
+                    const isCur = p.id === activePlayer.id;
+
+                    return (
+                      <g key={`ft_p_${p.id || idx}`} transform={`translate(${offsetX}, ${offsetY})`}>
+                        {isCur && (
+                          <circle
+                            cx="0"
+                            cy="0"
+                            r="11"
+                            fill="none"
+                            stroke="#f59e0b"
+                            strokeWidth="2"
+                            className="animate-ping opacity-80"
+                          />
+                        )}
+                        <circle
+                          cx="0"
+                          cy="0"
+                          r="7.5"
+                          fill={p.color?.hex || '#38bdf8'}
+                          stroke="#ffffff"
+                          strokeWidth="1.5"
+                        />
+                        <text
+                          x="0"
+                          y="2.5"
+                          textAnchor="middle"
+                          fill="#020617"
+                          fontSize="6.5"
+                          fontWeight="900"
+                          fontFamily="sans-serif"
+                        >
+                          {p.name ? p.name.charAt(0).toUpperCase() : 'F'}
+                        </text>
+                      </g>
+                    );
+                  })}
+                </g>
+              );
+            })}
         </svg>
       </div>
     </div>

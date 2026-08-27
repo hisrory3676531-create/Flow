@@ -50,7 +50,7 @@ export interface PlayerFinancials {
 export interface Asset {
   id: string;
   title: string;
-  type: 'REAL_ESTATE' | 'STOCK' | 'BUSINESS' | 'VEHICLE' | 'COMMODITY';
+  type: 'REAL_ESTATE' | 'STOCK' | 'BUSINESS' | 'VEHICLE' | 'COMMODITY' | 'FAST_TRACK_BIZ';
   cost: number;
   cashflow: number;
   downPayment: number;
@@ -72,6 +72,11 @@ export interface Player {
   isBankrupt: boolean;
   skippedTurns: number;
   dream?: Dream;
+  
+  // Поля состояния Скоростной дорожки (Fast Track)
+  fastTrackPosition?: number;
+  fastTrackCashflow?: number;
+  fastTrackInitialCashflow?: number;
 }
 
 export interface Tile {
