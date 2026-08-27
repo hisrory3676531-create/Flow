@@ -33,7 +33,7 @@ export interface PlayerFinancials {
 export interface Asset {
   id: string;
   title: string;
-  type: 'REAL_ESTATE' | 'STOCK' | 'BUSINESS';
+  type: 'REAL_ESTATE' | 'STOCK' | 'BUSINESS' | 'VEHICLE' | 'COMMODITY';
   cost: number;
   cashflow: number;
   downPayment: number;
@@ -61,6 +61,7 @@ export interface Tile {
   title: string;
   type: 'PAYDAY' | 'DEAL' | 'DOODAD' | 'MARKET' | 'CHARITY' | 'DOWNTURN' | 'BABY';
 }
+
 export interface GameSettings {
   roomId: string;
   maxPlayers: number;
