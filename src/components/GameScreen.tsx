@@ -92,6 +92,14 @@ export const GameScreen: FC<GameScreenProps> = ({
   const [showVictoryModal, setShowVictoryModal] = useState<boolean>(false);
   const [showBabyModal, setShowBabyModal] = useState<boolean>(false);
 
+  // Финальные данные победы в игре
+  const [victoryData, setVictoryData] = useState<{
+    winnerName: string;
+    dreamTitle?: string;
+    winReason?: string;
+    isMeWinner: boolean;
+  } | null>(null);
+
   // Модальные окна Fast Track
   const [showFastTrackTransition, setShowFastTrackTransition] = useState<boolean>(false);
   const [activeFastTrackDeal, setActiveFastTrackDeal] = useState<FastTrackTile | null>(null);
@@ -128,6 +136,25 @@ export const GameScreen: FC<GameScreenProps> = ({
 
   const finishTurnActionRef = useRef(finishTurnAction);
   finishTurnActionRef.current = finishTurnAction;
+
+  const triggerVictory = (reason: string, dreamTitle?: string) => {
+    soundManager.playVictory();
+    const data = {
+      roomId,
+      userId: player.userId,
+      winnerName: player.name,
+      winReason: reason,
+      dreamTitle
+    };
+    socket.emit('player_won_game', data);
+    setVictoryData({
+      winnerName: player.name,
+      dreamTitle,
+      winReason: reason,
+      isMeWinner: true
+    });
+    setShowVictoryModal(true);
+  };
 
   useEffect(() => {
     if (isMyTurn) {
@@ -189,6 +216,18 @@ export const GameScreen: FC<GameScreenProps> = ({
     socket.on('deal_trade_closed', () => {
       setIncomingTradeOffer(null);
       setTradeWaitingMessage('');
+    });
+
+    // Синхронизация глобальной победы в матче
+    socket.on('game_victory', (data) => {
+      soundManager.playVictory();
+      setVictoryData({
+        winnerName: data.winnerName,
+        dreamTitle: data.dreamTitle,
+        winReason: data.winReason,
+        isMeWinner: data.userId === player.userId
+      });
+      setShowVictoryModal(true);
     });
 
     socket.on('sync_game_state', (roomData) => {
@@ -253,6 +292,7 @@ export const GameScreen: FC<GameScreenProps> = ({
       socket.off('sync_game_state');
       socket.off('deal_trade_offered');
       socket.off('deal_trade_closed');
+      socket.off('game_victory');
     };
   }, [roomId, player.userId]);
 
@@ -578,9 +618,7 @@ export const GameScreen: FC<GameScreenProps> = ({
 
     const flowGain = updatedFastCashflow - (player.fastTrackInitialCashflow || 0);
     if (flowGain >= 50000) {
-      soundManager.playVictory();
-      setShowVictoryModal(true);
-      addLog(`🏆 АБСОЛЮТНАЯ ПОБЕДА! ${player.name} увеличил Fast Track поток на +$${flowGain.toLocaleString()}!`);
+      triggerVictory(`Увеличил Fast Track поток на +$${flowGain.toLocaleString()}!`);
     }
 
     finishTurnAction();
@@ -1099,10 +1137,8 @@ export const GameScreen: FC<GameScreenProps> = ({
           playerCash={player.cash}
           isMyDream={player.dream && (activeFastTrackEvent.dreamId === player.dream.id || activeFastTrackEvent.title === player.dream.title)}
           onBuyDream={() => {
-            soundManager.playVictory();
-            setShowVictoryModal(true);
+            triggerVictory(`Выкупил свою мечту «${activeFastTrackEvent.title}»!`, activeFastTrackEvent.title);
             setActiveFastTrackEvent(null);
-            addLog(`🏆 АБСОЛЮТНАЯ ПОБЕДА! ${player.name} выкупил свою Мечту «${activeFastTrackEvent.title}»!`);
           }}
           onConfirm={() => {
             if (activeFastTrackEvent.type === 'TAX_AUDIT') {
@@ -1226,10 +1262,15 @@ export const GameScreen: FC<GameScreenProps> = ({
         />
       )}
 
+      {/* Модальное окно финальной победы */}
       {showVictoryModal && (
         <VictoryModal
           player={player}
-          onContinue={() => setShowVictoryModal(false)}
+          winnerName={victoryData?.winnerName}
+          dreamTitle={victoryData?.dreamTitle}
+          winReason={victoryData?.winReason}
+          isMeWinner={victoryData ? victoryData.isMeWinner : true}
+          onRestart={onRestart}
         />
       )}
 
