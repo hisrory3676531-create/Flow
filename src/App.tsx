@@ -147,11 +147,9 @@ export const App = () => {
     }
   };
 
-  const handleProfileComplete = (name: string, dream: Dream) => {
+  const handleProfileComplete = (name: string) => {
     setPlayerName(name);
-    setPlayerDream(dream);
     localStorage.setItem('cashflow_userName', name);
-    localStorage.setItem('cashflow_selected_dream', JSON.stringify(dream));
     setStep('LOBBY_BROWSER');
   };
 
@@ -270,7 +268,7 @@ export const App = () => {
 
       {step === 'PROFILE' && (
         <ProfileSetupScreen
-          onComplete={(name, dream) => handleProfileComplete(name, dream)}
+          onComplete={(name) => handleProfileComplete(name)}
         />
       )}
 

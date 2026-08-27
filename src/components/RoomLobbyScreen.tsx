@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { FC } from 'react';
-import type { Profession } from '../types/game.types';
+import type { Profession, Dream } from '../types/game.types';
+import { DREAMS_LIST } from '../types/game.types';
 import { RAT_COLORS, RatColor } from './ProfileSetupScreen';
 import { PROFESSIONS } from '../data/professions.data';
 import { socket } from '../services/socket';
@@ -23,6 +24,7 @@ export const RoomLobbyScreen: FC<RoomLobbyScreenProps> = ({
   const [roomData, setRoomData] = useState<any>(null);
   const [selectedColor, setSelectedColor] = useState<RatColor | null>(null);
   const [selectedProfession, setSelectedProfession] = useState<Profession | null>(null);
+  const [selectedDream, setSelectedDream] = useState<Dream>(DREAMS_LIST[0]);
   const [showFullCardModal, setShowFullCardModal] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
 
@@ -33,6 +35,7 @@ export const RoomLobbyScreen: FC<RoomLobbyScreenProps> = ({
         const me = data.players?.find((p: any) => p.userId === userId);
         if (me?.color) setSelectedColor(me.color);
         if (me?.profession) setSelectedProfession(me.profession);
+        if (me?.dream) setSelectedDream(me.dream);
       }
     };
 
@@ -54,7 +57,6 @@ export const RoomLobbyScreen: FC<RoomLobbyScreenProps> = ({
     socket.on('game_started', handleGameStarted);
     socket.on('error_message', handleError);
 
-    // Сразу запрашиваем актуальное состояние лобби и отправляем запрос на вход
     const sendJoinAndSync = () => {
       socket.emit('get_room_lobby_state', { roomId });
       socket.emit('join_room', {
@@ -64,7 +66,8 @@ export const RoomLobbyScreen: FC<RoomLobbyScreenProps> = ({
           userId,
           name: userName,
           color: null,
-          profession: null
+          profession: null,
+          dream: selectedDream
         }
       });
     };
@@ -77,7 +80,6 @@ export const RoomLobbyScreen: FC<RoomLobbyScreenProps> = ({
 
     socket.on('connect', sendJoinAndSync);
 
-    // Регулярный опрос, пока состояние комнаты не загружено
     const interval = setInterval(() => {
       if (!roomData && socket.connected) {
         sendJoinAndSync();
@@ -125,6 +127,12 @@ export const RoomLobbyScreen: FC<RoomLobbyScreenProps> = ({
     socket.emit('select_color', { roomId, userId, color });
   };
 
+  const handlePickDream = (dream: Dream) => {
+    setSelectedDream(dream);
+    localStorage.setItem('cashflow_selected_dream', JSON.stringify(dream));
+    socket.emit('select_dream', { roomId, userId, dream });
+  };
+
   const handlePickProfession = (prof: Profession) => {
     if (takenProfIds.includes(prof.id)) return;
     setSelectedProfession(prof);
@@ -136,7 +144,7 @@ export const RoomLobbyScreen: FC<RoomLobbyScreenProps> = ({
     socket.emit('start_game', { roomId });
   };
 
-  const allPlayersReady = players.length >= 2 && players.every((p: any) => p.color && p.profession);
+  const allPlayersReady = players.length >= 1 && players.every((p: any) => p.color && p.profession);
 
   const totalExpenses = selectedProfession
     ? selectedProfession.taxes +
@@ -151,7 +159,7 @@ export const RoomLobbyScreen: FC<RoomLobbyScreenProps> = ({
     : 0;
 
   return (
-    <div className="min-h-screen bg-[#130620] text-slate-100 flex flex-col p-4 sm:p-6 max-w-6xl mx-auto space-y-4">
+    <div className="min-h-screen bg-[#130620] text-slate-100 flex flex-col p-3 sm:p-6 max-w-6xl mx-auto space-y-4">
       {errorMessage && (
         <div className="bg-rose-600/90 text-white font-bold px-4 py-2 rounded-xl text-xs text-center animate-bounce">
           {errorMessage}
@@ -180,7 +188,7 @@ export const RoomLobbyScreen: FC<RoomLobbyScreenProps> = ({
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1">
-        {/* Левая колонка */}
+        {/* Левая колонка: Игроки и Цвет */}
         <div className="lg:col-span-4 space-y-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 space-y-3">
             <span className="text-xs font-bold text-slate-300 block uppercase tracking-wider">
@@ -200,12 +208,13 @@ export const RoomLobbyScreen: FC<RoomLobbyScreenProps> = ({
                     <span className="font-bold text-slate-200">
                       {p.name} {p.userId === userId && '(Вы)'}
                     </span>
+                    {p.dream && <span title={p.dream.title}>{p.dream.icon}</span>}
                   </div>
                   <div className="text-[10px] font-mono">
                     {p.profession ? (
                       <span className="text-emerald-400 font-bold">Готов ✓</span>
                     ) : (
-                      <span className="text-amber-400/80 italic">Тянет карту...</span>
+                      <span className="text-amber-400/80 italic">Готовится...</span>
                     )}
                   </div>
                 </div>
@@ -245,6 +254,42 @@ export const RoomLobbyScreen: FC<RoomLobbyScreenProps> = ({
             </div>
           </div>
 
+          {/* 2. Выбор мечты для текущей игры */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 space-y-2.5">
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-bold text-slate-300 block uppercase tracking-wider">
+                2. Ваша мечта (Fast Track):
+              </span>
+              <span className="text-[10px] font-mono text-amber-400 font-bold">
+                {selectedDream.cost.toLocaleString()} $
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              {DREAMS_LIST.map((dream) => {
+                const isSelected = selectedDream.id === dream.id;
+                return (
+                  <button
+                    key={dream.id}
+                    type="button"
+                    onClick={() => handlePickDream(dream)}
+                    className={`p-2 rounded-xl border text-left transition flex items-center space-x-2 cursor-pointer ${
+                      isSelected
+                        ? 'border-amber-400 bg-amber-400/20 text-amber-300'
+                        : 'border-slate-800 bg-slate-950/70 hover:border-slate-700 text-slate-400'
+                    }`}
+                  >
+                    <span className="text-lg">{dream.icon}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[11px] font-bold truncate">{dream.title}</div>
+                      <div className="text-[9px] font-mono opacity-80">{dream.cost.toLocaleString()}$</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {isHost && (
             <button
               onClick={handleStartGame}
@@ -252,7 +297,7 @@ export const RoomLobbyScreen: FC<RoomLobbyScreenProps> = ({
               className="w-full bg-amber-400 hover:bg-amber-300 disabled:bg-slate-800 disabled:text-slate-600 text-slate-950 font-black py-4 rounded-2xl text-sm transition shadow-lg shadow-amber-500/20 cursor-pointer"
             >
               {!allPlayersReady
-                ? 'ОЖИДАНИЕ ВЫБОРА ВСЕХ ИГРОКОВ (МИН. 2)...'
+                ? 'ОЖИДАНИЕ ВЫБОРА ВСЕХ ИГРОКОВ...'
                 : 'НАЧАТЬ ИГРУ ДЛЯ ВСЕХ ➔'}
             </button>
           )}
@@ -264,12 +309,12 @@ export const RoomLobbyScreen: FC<RoomLobbyScreenProps> = ({
           )}
         </div>
 
-        {/* Правая колонка */}
+        {/* Правая колонка: Профессии */}
         <div className="lg:col-span-8 bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-4 flex flex-col justify-between">
           <div>
             <div className="flex justify-between items-center mb-3">
               <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-                2. Выберите карточку профессии вслепую:
+                3. Выберите карточку профессии вслепую:
               </span>
               {selectedProfession && (
                 <button
