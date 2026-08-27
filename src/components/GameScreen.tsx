@@ -133,16 +133,17 @@ export const GameScreen: FC<GameScreenProps> = ({
           }))
         );
 
-        const me = roomData.players.find((p: any) => p.userId === player.userId);
-        if (me) {
-          setPlayer((prev) => ({
-            ...prev,
-            cash: me.cash,
-            boardPosition: me.position ?? prev.boardPosition,
-            financials: me.financials ?? prev.financials,
-            assets: me.assets ?? prev.assets
-          }));
-        }
+              const me = roomData.players.find((p: any) => p.userId === player.userId);
+      if (me) {
+        setPlayer((prev) => ({
+          ...prev,
+          cash: me.cash,
+          bankDebt: me.bankDebt ?? prev.bankDebt ?? 0,
+          boardPosition: me.position ?? prev.boardPosition,
+          financials: me.financials ?? prev.financials,
+          assets: me.assets ?? prev.assets
+        }));
+      }
       }
 
       if (typeof roomData.currentTurnIndex === 'number') {
