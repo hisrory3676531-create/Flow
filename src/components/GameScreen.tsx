@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { FC } from 'react';
 import type { Player, Asset, GameSettings } from '../types/game.types';
 import type { RatColor } from './ProfileSetupScreen';
@@ -27,6 +27,8 @@ interface GameScreenProps {
   onRestart: () => void;
 }
 
+const TURN_DURATION_SECONDS = 60;
+
 export const GameScreen: FC<GameScreenProps> = ({
   player: initialPlayer,
   playerColor,
@@ -45,6 +47,9 @@ export const GameScreen: FC<GameScreenProps> = ({
   const [incomingTradeOffer, setIncomingTradeOffer] = useState<any>(null);
   const [tradeWaitingMessage, setTradeWaitingMessage] = useState<string>('');
   const [isMarketDismissed, setIsMarketDismissed] = useState<boolean>(false);
+
+  // Таймер хода
+  const [timeLeft, setTimeLeft] = useState<number>(TURN_DURATION_SECONDS);
 
   // Сетевые данные игроков
   const [roomPlayers, setRoomPlayers] = useState<BoardPlayer[]>([
@@ -76,6 +81,10 @@ export const GameScreen: FC<GameScreenProps> = ({
   const activeCurrentPlayer = roomPlayers[currentTurnIndex] || roomPlayers[0];
   const isMyTurn = activeCurrentPlayer?.id === player.id;
 
+  const addLog = (msg: string) => {
+    setLogs((prev) => [msg, ...prev]);
+  };
+
   // Автоматический переход хода
   const finishTurnAction = () => {
     setActiveDealModal(false);
@@ -91,6 +100,30 @@ export const GameScreen: FC<GameScreenProps> = ({
     socket.emit('player_close_card', { roomId, autoEndTurn: true });
   };
 
+  // Ссылка на актуальный finishTurnAction для таймера
+  const finishTurnActionRef = useRef(finishTurnAction);
+  finishTurnActionRef.current = finishTurnAction;
+
+  // Таймер хода: отсчет и автозавершение
+  useEffect(() => {
+    setTimeLeft(TURN_DURATION_SECONDS);
+
+    const interval = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          if (isMyTurn) {
+            addLog(`⏱️ Время на ход истекло (60 сек). Ход передан автоматически.`);
+            finishTurnActionRef.current();
+          }
+          return TURN_DURATION_SECONDS;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [currentTurnIndex, isMyTurn]);
+
   // Подключение к сокету и слушатели
   useEffect(() => {
     socket.emit('join_room', {
@@ -104,7 +137,8 @@ export const GameScreen: FC<GameScreenProps> = ({
         cash: player.cash,
         financials: player.financials,
         assets: player.assets,
-        profession: player.profession
+        profession: player.profession,
+        dream: player.dream
       }
     });
 
@@ -133,17 +167,17 @@ export const GameScreen: FC<GameScreenProps> = ({
           }))
         );
 
-              const me = roomData.players.find((p: any) => p.userId === player.userId);
-      if (me) {
-        setPlayer((prev) => ({
-          ...prev,
-          cash: me.cash,
-          bankDebt: me.bankDebt ?? prev.bankDebt ?? 0,
-          boardPosition: me.position ?? prev.boardPosition,
-          financials: me.financials ?? prev.financials,
-          assets: me.assets ?? prev.assets
-        }));
-      }
+        const me = roomData.players.find((p: any) => p.userId === player.userId);
+        if (me) {
+          setPlayer((prev) => ({
+            ...prev,
+            cash: me.cash,
+            bankDebt: me.bankDebt ?? prev.bankDebt ?? 0,
+            boardPosition: me.position ?? prev.boardPosition,
+            financials: me.financials ?? prev.financials,
+            assets: me.assets ?? prev.assets
+          }));
+        }
       }
 
       if (typeof roomData.currentTurnIndex === 'number') {
@@ -167,10 +201,6 @@ export const GameScreen: FC<GameScreenProps> = ({
       socket.off('deal_trade_closed');
     };
   }, [roomId, player.userId]);
-
-  const addLog = (msg: string) => {
-    setLogs((prev) => [msg, ...prev]);
-  };
 
   const checkVictory = (passive: number, expenses: number) => {
     if (passive > expenses && !showVictoryModal) {
@@ -238,7 +268,6 @@ export const GameScreen: FC<GameScreenProps> = ({
       const newPos = (oldPos + totalDice) % 24;
       const currentTile = BOARD_TILES[newPos];
 
-      // Проверяем прохождение любых клеток PAYDAY по пути броска
       let passedPaydayCount = 0;
       for (let step = 1; step <= totalDice; step++) {
         const stepPos = (oldPos + step) % 24;
@@ -625,7 +654,7 @@ export const GameScreen: FC<GameScreenProps> = ({
         isMyTurn={isMyTurn}
       />
 
-      {/* Компактный однострочный хедер */}
+      {/* Компактный однострочный хедер с таймером */}
       <header className="bg-[#1f0a33] border-b border-purple-900/50 px-2.5 sm:px-6 py-1.5 flex items-center justify-between shadow-lg shrink-0">
         <div className="flex items-center space-x-1.5">
           <div className="w-5 h-5 rounded bg-amber-400 flex items-center justify-center font-black text-slate-950 text-[10px]">
@@ -636,7 +665,19 @@ export const GameScreen: FC<GameScreenProps> = ({
           </span>
         </div>
 
-        <div className="flex items-center space-x-1.5">
+        <div className="flex items-center space-x-2">
+          {/* Виджет таймера */}
+          <div
+            className={`text-[11px] font-mono font-black px-2 py-0.5 rounded-lg flex items-center space-x-1 border transition-all ${
+              timeLeft <= 15
+                ? 'bg-rose-500/20 border-rose-500 text-rose-400 animate-pulse'
+                : 'bg-slate-900 border-slate-700 text-amber-300'
+            }`}
+          >
+            <span>⏱️</span>
+            <span>{timeLeft}s</span>
+          </div>
+
           <div className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-slate-900 border border-slate-700 flex items-center space-x-1">
             <span className="text-slate-400">Ходит:</span>
             <span className="font-mono text-amber-400 truncate max-w-[65px] sm:max-w-none">
@@ -663,7 +704,6 @@ export const GameScreen: FC<GameScreenProps> = ({
 
       {/* Основная рабочая область */}
       <main className="flex-1 flex flex-col lg:grid lg:grid-cols-12 gap-2 p-1.5 sm:p-3 w-full overflow-hidden relative">
-        {/* Секция игрового поля */}
         <section className="flex-1 lg:col-span-8 xl:col-span-9 flex items-center justify-center min-h-0 pb-16 lg:pb-0">
           <GameBoard
             players={roomPlayers}
@@ -671,7 +711,6 @@ export const GameScreen: FC<GameScreenProps> = ({
           />
         </section>
 
-        {/* Секция финансовой панели и управления */}
         <section className="hidden lg:flex lg:col-span-4 xl:col-span-3 h-full">
           <FinancialStatementPanel
             player={player}
@@ -686,7 +725,6 @@ export const GameScreen: FC<GameScreenProps> = ({
           />
         </section>
 
-        {/* Мобильная финансовая панель (шторка и нижняя полоса) */}
         <div className="lg:hidden">
           <FinancialStatementPanel
             player={player}
@@ -701,7 +739,6 @@ export const GameScreen: FC<GameScreenProps> = ({
           />
         </div>
 
-        {/* Плавающая кнопка ручного получения зарплаты */}
         {pendingPayday > 0 && isMyTurn && (
           <div className="absolute bottom-20 lg:bottom-8 left-1/2 -translate-x-1/2 z-40 animate-bounce">
             <button
