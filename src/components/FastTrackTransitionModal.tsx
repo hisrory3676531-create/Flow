@@ -4,11 +4,13 @@ import type { Player } from '../types/game.types';
 interface FastTrackTransitionModalProps {
   player: Player;
   onEnterFastTrack: () => void;
+  onStayInRatRace?: () => void;
 }
 
 export const FastTrackTransitionModal: FC<FastTrackTransitionModalProps> = ({
   player,
-  onEnterFastTrack
+  onEnterFastTrack,
+  onStayInRatRace
 }) => {
   const passive = player.financials.passiveIncome;
   const newFastIncome = passive * 10;
@@ -16,6 +18,8 @@ export const FastTrackTransitionModal: FC<FastTrackTransitionModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
       <div className="bg-gradient-to-b from-[#1e1035] to-[#0d041a] border-2 border-amber-400/80 rounded-3xl p-5 sm:p-7 max-w-md w-full shadow-2xl text-center relative overflow-hidden">
+        
+        {/* Иконка перехода */}
         <div className="w-16 h-16 bg-amber-400/20 border border-amber-400 rounded-full flex items-center justify-center text-3xl mx-auto mb-3 animate-bounce shadow-lg shadow-amber-500/30">
           🚀
         </div>
@@ -24,10 +28,11 @@ export const FastTrackTransitionModal: FC<FastTrackTransitionModalProps> = ({
           Вы вышли из крысиных бегов!
         </h2>
 
-        <p className="text-xs sm:text-sm text-slate-300 mt-2">
-          Ваш пассивный доход (<span className="text-emerald-400 font-bold">${passive.toLocaleString()}</span>) превысил расходы! Теперь вы переходите на <span className="text-amber-400 font-bold">Скоростную дорожку (Fast Track)</span>.
+        <p className="text-xs sm:text-sm text-slate-300 mt-2 leading-relaxed">
+          Ваш пассивный доход (<span className="text-emerald-400 font-bold">${passive.toLocaleString()}</span>) превысил расходы! Теперь вы можете перейти на <span className="text-amber-400 font-bold">Скоростную дорожку (Fast Track)</span>.
         </p>
 
+        {/* Сводка параметров перехода */}
         <div className="my-4 bg-slate-900/90 border border-purple-500/40 rounded-2xl p-3 text-left space-y-2 text-xs">
           <div className="flex justify-between items-center text-slate-300">
             <span>Стартовый Fast Track доход (x10):</span>
@@ -49,12 +54,29 @@ export const FastTrackTransitionModal: FC<FastTrackTransitionModalProps> = ({
           </div>
         </div>
 
-        <button
-          onClick={onEnterFastTrack}
-          className="w-full py-3 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black text-sm rounded-xl shadow-lg transition transform active:scale-95 cursor-pointer uppercase tracking-wider"
-        >
-          Выйти на Скоростную дорожку ➔
-        </button>
+        <p className="text-[11px] text-slate-400 mb-3 px-1">
+          Вы можете перейти прямо сейчас или остаться на малом круге, чтобы накопить ещё больше наличных и активов.
+        </p>
+
+        {/* Кнопки действий */}
+        <div className="space-y-2">
+          <button
+            onClick={onEnterFastTrack}
+            className="w-full py-3 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black text-sm rounded-xl shadow-lg transition transform active:scale-95 cursor-pointer uppercase tracking-wider"
+          >
+            Выйти на Скоростную дорожку ➔
+          </button>
+
+          {onStayInRatRace && (
+            <button
+              onClick={onStayInRatRace}
+              className="w-full py-2.5 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white font-bold text-xs rounded-xl transition cursor-pointer"
+            >
+              Остаться в Крысиных бегах (ещё подкопить)
+            </button>
+          )}
+        </div>
+
       </div>
     </div>
   );

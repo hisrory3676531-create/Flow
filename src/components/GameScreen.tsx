@@ -135,13 +135,15 @@ export const GameScreen: FC<GameScreenProps> = ({
     }
   }, [currentTurnIndex, isMyTurn]);
 
+  // Таймер хода: не сбрасывает карточки, пока игрок принимает решение
   useEffect(() => {
     setTimeLeft(TURN_DURATION_SECONDS);
 
     const interval = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
-          if (isMyTurn && !activeDealModal && !activeMarketCard && !activeDoodadCard && !activeFastTrackDeal && !activeFastTrackEvent) {
+          const hasActiveModal = activeDealModal || activeMarketCard || activeDoodadCard || activeFastTrackDeal || activeFastTrackEvent;
+          if (isMyTurn && !hasActiveModal) {
             addLog(`⏱️ Время на ход истекло. Ход передан.`);
             finishTurnActionRef.current();
           }
@@ -543,8 +545,7 @@ export const GameScreen: FC<GameScreenProps> = ({
 
     const updatedCash = player.cash - cost;
     const updatedFastCashflow = (player.fastTrackCashflow || 0) + addedCashflow;
-    
-    // Синхронизируем и financials, чтобы панель и лобби видели новый доход
+
     const updatedFinancials = {
       ...player.financials,
       passiveIncome: (player.financials.passiveIncome || 0) + addedCashflow,
@@ -929,6 +930,17 @@ export const GameScreen: FC<GameScreenProps> = ({
         </div>
 
         <div className="flex items-center space-x-2">
+          {/* Кнопка ручного перехода на Fast Track, если условия выполнены */}
+          {!isOnFastTrack && player.financials.passiveIncome > player.financials.totalExpenses && (
+            <button
+              onClick={() => setShowFastTrackTransition(true)}
+              className="bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black px-2.5 py-0.5 rounded-lg text-[10px] transition cursor-pointer flex items-center space-x-1 animate-pulse shadow-md"
+            >
+              <span>🚀</span>
+              <span>Выйти на Fast Track</span>
+            </button>
+          )}
+
           <button
             onClick={() => {
               const hugePassive = (player.financials?.totalExpenses || 1500) + 15000;
@@ -1060,6 +1072,10 @@ export const GameScreen: FC<GameScreenProps> = ({
         <FastTrackTransitionModal
           player={player}
           onEnterFastTrack={handleEnterFastTrack}
+          onStayInRatRace={() => {
+            setShowFastTrackTransition(false);
+            addLog(`⏳ ${player.name} решил остаться на малом круге и продолжить накопление капитала.`);
+          }}
         />
       )}
 
