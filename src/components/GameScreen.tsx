@@ -1153,6 +1153,65 @@ export const GameScreen: FC<GameScreenProps> = ({
           ⏳ {tradeWaitingMessage}
         </div>
       )}
+      {/* ========================================================================= */}
+      {/* ПАНЕЛЬ ТЕСТИРОВАНИЯ И ЧИТОВ (ДЛЯ РАЗРАБОТЧИКА)                             */}
+      {/* ========================================================================= */}
+      <div className="fixed top-12 right-2 z-50 flex flex-col gap-1 bg-slate-950/90 border border-amber-400/60 p-1.5 rounded-xl shadow-2xl backdrop-blur-md">
+        <span className="text-[8px] font-black text-amber-400 uppercase text-center tracking-wider">
+          🛠️ Dev Cheats
+        </span>
+
+        {/* 1. Выход на Fast Track */}
+        <button
+          onClick={() => {
+            const hugePassive = (player.financials?.totalExpenses || 1500) + 20000;
+            const updatedFin = {
+              ...player.financials,
+              passiveIncome: hugePassive,
+              totalIncome: (player.financials?.salary || 3000) + hugePassive,
+              monthlyCashflow: (player.financials?.salary || 3000) + hugePassive - (player.financials?.totalExpenses || 1500)
+            };
+
+            setPlayer((prev) => ({
+              ...prev,
+              financials: updatedFin
+            }));
+
+            socket.emit('player_update_financials', {
+              roomId,
+              updatedPlayer: {
+                userId: player.userId,
+                financials: updatedFin
+              },
+              logMessage: `⚡ [ЧИТ] ${player.name} активировал выход на Fast Track!`
+            });
+
+            setShowFastTrackTransition(true);
+          }}
+          className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[9px] px-2 py-1 rounded-lg transition active:scale-95 cursor-pointer shadow"
+        >
+          🚀 На Fast Track
+        </button>
+
+        {/* 2. Начислить $500,000 наличных */}
+        <button
+          onClick={() => {
+            const addedCash = player.cash + 500000;
+            setPlayer((prev) => ({ ...prev, cash: addedCash }));
+            socket.emit('player_update_financials', {
+              roomId,
+              updatedPlayer: {
+                userId: player.userId,
+                cash: addedCash
+              },
+              logMessage: `💰 [ЧИТ] ${player.name} начислил +$500,000 кэша!`
+            });
+          }}
+          className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-[9px] px-2 py-1 rounded-lg transition active:scale-95 cursor-pointer shadow"
+        >
+          +$500k Кэш
+        </button>
+      </div>
     </div>
   );
 };
