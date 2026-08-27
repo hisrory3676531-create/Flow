@@ -141,8 +141,8 @@ export const GameScreen: FC<GameScreenProps> = ({
     const interval = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
-          if (isMyTurn) {
-            addLog(`⏱️ Время на ход истекло (60 сек). Ход передан автоматически.`);
+          if (isMyTurn && !activeDealModal && !activeMarketCard && !activeDoodadCard && !activeFastTrackDeal && !activeFastTrackEvent) {
+            addLog(`⏱️ Время на ход истекло. Ход передан.`);
             finishTurnActionRef.current();
           }
           return TURN_DURATION_SECONDS;
@@ -152,7 +152,7 @@ export const GameScreen: FC<GameScreenProps> = ({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [currentTurnIndex, isMyTurn]);
+  }, [currentTurnIndex, isMyTurn, activeDealModal, activeMarketCard, activeDoodadCard, activeFastTrackDeal, activeFastTrackEvent]);
 
   useEffect(() => {
     socket.emit('join_room', {
@@ -543,11 +543,20 @@ export const GameScreen: FC<GameScreenProps> = ({
 
     const updatedCash = player.cash - cost;
     const updatedFastCashflow = (player.fastTrackCashflow || 0) + addedCashflow;
+    
+    // Синхронизируем и financials, чтобы панель и лобби видели новый доход
+    const updatedFinancials = {
+      ...player.financials,
+      passiveIncome: (player.financials.passiveIncome || 0) + addedCashflow,
+      totalIncome: (player.financials.totalIncome || 0) + addedCashflow,
+      monthlyCashflow: (player.financials.monthlyCashflow || 0) + addedCashflow
+    };
 
     setPlayer((prev) => ({
       ...prev,
       cash: updatedCash,
       fastTrackCashflow: updatedFastCashflow,
+      financials: updatedFinancials,
       assets: [...prev.assets, newAsset]
     }));
 
@@ -557,9 +566,10 @@ export const GameScreen: FC<GameScreenProps> = ({
         userId: player.userId,
         cash: updatedCash,
         fastTrackCashflow: updatedFastCashflow,
+        financials: updatedFinancials,
         assets: [...player.assets, newAsset]
       },
-      logMessage: `🏢 ${player.name} приобрел бизнес: «${tile.title}» (++$${addedCashflow.toLocaleString()}/ход)!`
+      logMessage: `🏢 ${player.name} приобрел бизнес «${tile.title}» (+${addedCashflow.toLocaleString()}$/ход к Payday)!`
     });
 
     const flowGain = updatedFastCashflow - (player.fastTrackInitialCashflow || 0);
