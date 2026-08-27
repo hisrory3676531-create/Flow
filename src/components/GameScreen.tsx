@@ -50,10 +50,8 @@ export const GameScreen: FC<GameScreenProps> = ({
   const [isMarketDismissed, setIsMarketDismissed] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(soundManager.getMutedState());
 
-  // Таймер хода
   const [timeLeft, setTimeLeft] = useState<number>(TURN_DURATION_SECONDS);
 
-  // Сетевые данные игроков
   const [roomPlayers, setRoomPlayers] = useState<BoardPlayer[]>([
     {
       id: initialPlayer.id,
@@ -70,7 +68,6 @@ export const GameScreen: FC<GameScreenProps> = ({
     `[Режим ЗП] ${settings?.autoPayday ? 'Автоматическое начисление' : 'Ручное получение (кнопка)'}`
   ]);
 
-  // Модальные окна
   const [activeDealModal, setActiveDealModal] = useState<boolean>(false);
   const [activeDoodadCard, setActiveDoodadCard] = useState<DoodadCard | null>(null);
   const [activeMarketCard, setActiveMarketCard] = useState<MarketCard | null>(null);
@@ -109,14 +106,12 @@ export const GameScreen: FC<GameScreenProps> = ({
   const finishTurnActionRef = useRef(finishTurnAction);
   finishTurnActionRef.current = finishTurnAction;
 
-  // Оповещение о наступлении хода
   useEffect(() => {
     if (isMyTurn) {
       soundManager.playYourTurn();
     }
   }, [currentTurnIndex, isMyTurn]);
 
-  // Таймер хода
   useEffect(() => {
     setTimeLeft(TURN_DURATION_SECONDS);
 
@@ -136,7 +131,6 @@ export const GameScreen: FC<GameScreenProps> = ({
     return () => clearInterval(interval);
   }, [currentTurnIndex, isMyTurn]);
 
-  // Сетевые сокеты
   useEffect(() => {
     socket.emit('join_room', {
       roomId,
@@ -225,7 +219,6 @@ export const GameScreen: FC<GameScreenProps> = ({
 
   const handleClaimManualPayday = () => {
     if (pendingPayday > 0) {
-      soundManager.playCoinSound();
       const claimedAmount = pendingPayday;
       setPendingPayday(0);
 
@@ -293,7 +286,6 @@ export const GameScreen: FC<GameScreenProps> = ({
       if (passedPaydayCount > 0) {
         const totalCashflowEarned = player.financials.monthlyCashflow * passedPaydayCount;
         if (settings?.autoPayday) {
-          soundManager.playCoinSound();
           paydayEarned = totalCashflowEarned;
         } else {
           setPendingPayday(totalCashflowEarned);
@@ -307,7 +299,6 @@ export const GameScreen: FC<GameScreenProps> = ({
         setActiveDealModal(true);
         openedCardData = { title: 'Выбирает вариант сделки', description: 'Игрок просматривает список сделок и оценивает доходность.' };
       } else if (currentTile.type === 'DOODAD') {
-        soundManager.playExpenseSound();
         const randomDoodad = DOODADS[Math.floor(Math.random() * DOODADS.length)];
         setActiveDoodadCard(randomDoodad);
         openedCardData = randomDoodad;
@@ -344,7 +335,6 @@ export const GameScreen: FC<GameScreenProps> = ({
   };
 
   const handleBuyDeal = (deal: DealCard, stockCount?: number, borrowedAmount: number = 0) => {
-    soundManager.playCoinSound();
     const isStock = deal.type === 'STOCK';
     const payment = isStock ? deal.cost * (stockCount || 100) : deal.downPayment;
     const addedCashflow = deal.cashflow;
@@ -405,7 +395,6 @@ export const GameScreen: FC<GameScreenProps> = ({
   };
 
   const handleAcceptTrade = () => {
-    soundManager.playCoinSound();
     socket.emit('respond_deal_trade', {
       roomId,
       accepted: true,
@@ -424,7 +413,6 @@ export const GameScreen: FC<GameScreenProps> = ({
   };
 
   const handleSellAsset = (asset: Asset, offerPrice: number) => {
-    soundManager.playCoinSound();
     const isStock = asset.type === 'STOCK';
     const mortgage = asset.mortgage || 0;
     const netPayout = isStock ? offerPrice * (asset.sharesCount || 1) : offerPrice - mortgage;
@@ -455,7 +443,6 @@ export const GameScreen: FC<GameScreenProps> = ({
   };
 
   const handleExecuteSplit = (symbol: string, ratio: number) => {
-    soundManager.playCoinSound();
     const newAssets = player.assets.map((a) => {
       if (a.type === 'STOCK' && a.title.includes(symbol)) {
         const newCount = (a.sharesCount || 0) * ratio;
@@ -478,8 +465,9 @@ export const GameScreen: FC<GameScreenProps> = ({
     if (isMyTurn) finishTurnAction();
   };
 
+  // 1. РОЖДЕНИЕ РЕБЕНКА -> ЗВУК МОНЕТ
   const handleConfirmBaby = () => {
-    soundManager.playExpenseSound();
+    soundManager.playCoinSound();
     if (player.financials.childCount < 3) {
       const expensePerChild = player.profession.childExpensePerCount;
       const newChildCount = player.financials.childCount + 1;
@@ -503,6 +491,7 @@ export const GameScreen: FC<GameScreenProps> = ({
     finishTurnAction();
   };
 
+  // 2. БЛАГОТВОРИТЕЛЬНОСТЬ -> ЗВУК МОНЕТ
   const handleDonateCharity = (amount: number) => {
     soundManager.playCoinSound();
     socket.emit('player_update_financials', {
@@ -533,7 +522,6 @@ export const GameScreen: FC<GameScreenProps> = ({
   };
 
   const handleTakeLoan = (amount: number) => {
-    soundManager.playCoinSound();
     const addedPayment = Math.round(amount * 0.1);
     const newDebt = (player.bankDebt || 0) + amount;
     const newBankPayment = player.financials.bankLoanPayment + addedPayment;
@@ -558,7 +546,6 @@ export const GameScreen: FC<GameScreenProps> = ({
   };
 
   const handlePayLoan = (amount: number) => {
-    soundManager.playCoinSound();
     const reducedPayment = Math.round(amount * 0.1);
     const newDebt = Math.max(0, (player.bankDebt || 0) - amount);
     const newBankPayment = Math.max(0, player.financials.bankLoanPayment - reducedPayment);
@@ -587,7 +574,6 @@ export const GameScreen: FC<GameScreenProps> = ({
     cost: number,
     paymentReduction: number
   ) => {
-    soundManager.playCoinSound();
     const newExpenses = player.financials.totalExpenses - paymentReduction;
     const newCashflow = player.financials.totalIncome - newExpenses;
     const updatedProfession = { ...player.profession };
@@ -692,7 +678,6 @@ export const GameScreen: FC<GameScreenProps> = ({
         </div>
 
         <div className="flex items-center space-x-2">
-          {/* Кнопка включения / выключения звука */}
           <button
             onClick={handleToggleMute}
             className="text-[11px] bg-slate-900 border border-slate-700 hover:border-slate-500 px-2 py-0.5 rounded-lg transition cursor-pointer"
@@ -701,7 +686,6 @@ export const GameScreen: FC<GameScreenProps> = ({
             {isMuted ? '🔇' : '🔊'}
           </button>
 
-          {/* Виджет таймера */}
           <div
             className={`text-[11px] font-mono font-black px-2 py-0.5 rounded-lg flex items-center space-x-1 border transition-all ${
               timeLeft <= 15
@@ -786,7 +770,6 @@ export const GameScreen: FC<GameScreenProps> = ({
         )}
       </main>
 
-      {/* Модальные окна */}
       {!isMarketDismissed && (activeMarketCard || (networkActiveCard && (networkActiveCard.cardType === 'Рынок' || networkActiveCard.targetType === 'SPLIT' || networkActiveCard.offerPrice || networkActiveCard.targetType === 'STOCK' || networkActiveCard.targetType === 'REAL_ESTATE'))) && (
         <MarketModal
           card={activeMarketCard || networkActiveCard}
@@ -817,6 +800,7 @@ export const GameScreen: FC<GameScreenProps> = ({
         />
       )}
 
+      {/* 3. ВСЯКАЯ ВСЯЧИНА -> ЗВУК МОНЕТ */}
       {isMyTurn && activeDoodadCard && (
         <DoodadModal
           card={activeDoodadCard}
