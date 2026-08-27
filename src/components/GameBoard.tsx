@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import type { FC } from 'react';
 import { BOARD_TILES, BoardTile } from '../data/board.data';
 import { FAST_TRACK_TILES, FastTrackTile } from '../data/fastTrack.data';
@@ -22,11 +23,24 @@ export const GameBoard: FC<GameBoardProps> = ({
   players = [],
   activePlayerId
 }) => {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const TOTAL_TILES = 24;
-  const CENTER_X = 600;
-  const CENTER_Y = 375;
-  const INNER_R = 145;
-  const OUTER_R = 255;
+  
+  // Координаты центра и радиусы в зависимости от устройства
+  const CENTER_X = isMobile ? 375 : 600;
+  const CENTER_Y = isMobile ? 525 : 375;
+  const INNER_R = isMobile ? 140 : 145;
+  const OUTER_R = isMobile ? 245 : 255;
 
   const safePlayers = Array.isArray(players)
     ? players.filter(Boolean).map((p) => ({
@@ -100,7 +114,43 @@ export const GameBoard: FC<GameBoardProps> = ({
     }
   };
 
+  // Расчет ячеек Fast Track под пропорции экрана
   const getFastTrackRect = (index: number) => {
+    if (isMobile) {
+      // Вертикальная раскладка 750 x 1050 (6 сверху, 9 справа, 6 снизу, 9 слева)
+      const W_TOP = 114;
+      const H_TOP = 85;
+      const W_SIDE = 98;
+      const H_SIDE = 92;
+      const LEFT_X = 14;
+      const RIGHT_X = 638;
+      const TOP_Y = 14;
+      const BOTTOM_Y = 951;
+
+      // 0..5 (Верхний ряд)
+      if (index >= 0 && index <= 5) {
+        const x = LEFT_X + index * 120.4;
+        return { x, y: TOP_Y, w: W_TOP, h: H_TOP, center: { x: x + W_TOP / 2, y: TOP_Y + H_TOP / 2 } };
+      }
+      // 6..14 (Правая колонка)
+      if (index >= 6 && index <= 14) {
+        const sub = index - 5;
+        const y = TOP_Y + sub * 93.7;
+        return { x: RIGHT_X, y, w: W_SIDE, h: H_SIDE, center: { x: RIGHT_X + W_SIDE / 2, y: y + H_SIDE / 2 } };
+      }
+      // 15..20 (Нижний ряд справа налево)
+      if (index >= 15 && index <= 20) {
+        const sub = index - 15;
+        const x = RIGHT_X - sub * 120.4;
+        return { x, y: BOTTOM_Y, w: W_TOP, h: H_TOP, center: { x: x + W_TOP / 2, y: BOTTOM_Y + H_TOP / 2 } };
+      }
+      // 21..29 (Левая колонка снизу вверх)
+      const sub = index - 20;
+      const y = BOTTOM_Y - sub * 93.7;
+      return { x: LEFT_X, y, w: W_SIDE, h: H_SIDE, center: { x: LEFT_X + W_SIDE / 2, y: y + H_SIDE / 2 } };
+    }
+
+    // Десктопная горизонтальная раскладка 1200 x 750
     const W = 110;
     const H = 64;
     const LEFT_X = 25;
@@ -127,8 +177,10 @@ export const GameBoard: FC<GameBoardProps> = ({
     return { x: LEFT_X, y, w: W, h: 102, center: { x: LEFT_X + 55, y: y + 51 } };
   };
 
+  const viewBoxValue = isMobile ? '0 0 750 1050' : '0 0 1200 750';
+
   return (
-    <div className="bg-[#1c082e]/90 border border-purple-900/50 rounded-2xl p-1.5 sm:p-3 flex flex-col justify-between shadow-2xl w-full h-full overflow-hidden select-none">
+    <div className="bg-[#1c082e]/90 border border-purple-900/50 rounded-2xl p-1 sm:p-3 flex flex-col justify-between shadow-2xl w-full h-full overflow-hidden select-none">
       {/* Верхний статус-бар */}
       <div className="flex items-center justify-between gap-1 border-b border-purple-800/40 pb-1.5 px-1 shrink-0">
         <div className="flex items-center space-x-1.5">
@@ -162,19 +214,19 @@ export const GameBoard: FC<GameBoardProps> = ({
         </div>
       </div>
 
-      {/* Единый SVG Canvas для ПК и мобильных */}
-      <div className="relative w-full flex-1 flex items-center justify-center min-h-0 overflow-hidden py-1">
+      {/* Адаптивный SVG Canvas */}
+      <div className="relative w-full flex-1 flex items-center justify-center min-h-0 overflow-hidden py-0.5">
         <svg
-          viewBox="0 0 1200 750"
+          viewBox={viewBoxValue}
           preserveAspectRatio="xMidYMid meet"
           className="w-full h-full max-h-full select-none"
         >
-          {/* ФОН ДОСКИ */}
+          {/* Фон доски */}
           <rect
-            x="10"
-            y="10"
-            width="1180"
-            height="730"
+            x="6"
+            y="6"
+            width={isMobile ? '738' : '1188'}
+            height={isMobile ? '1038' : '738'}
             rx="24"
             fill="#10031c"
             stroke="#4c1d95"
@@ -201,31 +253,31 @@ export const GameBoard: FC<GameBoardProps> = ({
 
                 <text
                   x={r.center.x}
-                  y={r.center.y - 8}
+                  y={r.center.y - (isMobile ? 12 : 8)}
                   textAnchor="middle"
-                  fontSize="13"
+                  fontSize={isMobile ? '16' : '13'}
                 >
                   {tile.icon}
                 </text>
 
                 <text
                   x={r.center.x}
-                  y={r.center.y + 7}
+                  y={r.center.y + (isMobile ? 6 : 7)}
                   textAnchor="middle"
                   fill="#f8fafc"
-                  fontSize="7.5"
+                  fontSize={isMobile ? '8.5' : '7.5'}
                   fontWeight="800"
                   fontFamily="sans-serif"
                 >
-                  {tile.title.length > 15 ? `${tile.title.slice(0, 14)}...` : tile.title}
+                  {tile.title.length > 14 ? `${tile.title.slice(0, 13)}...` : tile.title}
                 </text>
 
                 <text
                   x={r.center.x}
-                  y={r.center.y + 17}
+                  y={r.center.y + (isMobile ? 18 : 17)}
                   textAnchor="middle"
                   fill="#94a3b8"
-                  fontSize="6"
+                  fontSize={isMobile ? '7.5' : '6'}
                   fontWeight="bold"
                   fontFamily="monospace"
                 >
@@ -258,14 +310,13 @@ export const GameBoard: FC<GameBoardProps> = ({
                   strokeWidth={isTargeted ? '4' : '1.2'}
                 />
 
-                {/* Номер и Иконка */}
                 <g transform={`translate(${CENTER_X}, ${CENTER_Y}) rotate(${deg})`}>
                   <text
                     x="0"
                     y={-OUTER_R + 11}
                     textAnchor="middle"
                     fill="#cbd5e1"
-                    fontSize="6.5"
+                    fontSize={isMobile ? '7' : '6.5'}
                     fontFamily="monospace"
                     fontWeight="bold"
                   >
@@ -275,20 +326,19 @@ export const GameBoard: FC<GameBoardProps> = ({
                     x="0"
                     y={-INNER_R + 12}
                     textAnchor="middle"
-                    fontSize="9"
+                    fontSize={isMobile ? '11' : '9'}
                   >
                     {tile.icon}
                   </text>
                 </g>
 
-                {/* Название сектора */}
                 <g transform={`translate(${CENTER_X}, ${CENTER_Y}) rotate(${textRotation})`}>
                   <text
                     x="0"
                     y={textYOffset + 2.5}
                     textAnchor="middle"
                     fill="#ffffff"
-                    fontSize="6.5"
+                    fontSize={isMobile ? '7.5' : '6.5'}
                     fontWeight="800"
                     letterSpacing="0.2"
                   >
@@ -301,15 +351,15 @@ export const GameBoard: FC<GameBoardProps> = ({
 
           {/* Центр круга */}
           <g transform={`translate(${CENTER_X}, ${CENTER_Y})`}>
-            <circle cx="0" cy="0" r="120" fill="#1b0533" stroke="#f59e0b" strokeWidth="2.5" />
-            <text x="0" y="-55" textAnchor="middle" fill="#facc15" fontSize="20" fontWeight="900" letterSpacing="1.5">
+            <circle cx="0" cy="0" r={isMobile ? 115 : 120} fill="#1b0533" stroke="#f59e0b" strokeWidth="2.5" />
+            <text x="0" y="-50" textAnchor="middle" fill="#facc15" fontSize={isMobile ? '22' : '20'} fontWeight="900" letterSpacing="1.5">
               CASHFLOW
             </text>
-            <text x="0" y="-40" textAnchor="middle" fill="#cbd5e1" fontSize="7" fontWeight="bold">
+            <text x="0" y="-36" textAnchor="middle" fill="#cbd5e1" fontSize="7.5" fontWeight="bold">
               ВЫХОД ИЗ КРЫСИНЫХ БЕГОВ
             </text>
 
-            <text x="0" y="16" textAnchor="middle" fontSize="48">
+            <text x="0" y="18" textAnchor="middle" fontSize={isMobile ? '52' : '48'}>
               🐀
             </text>
 
@@ -336,8 +386,8 @@ export const GameBoard: FC<GameBoardProps> = ({
             return (
               <g key={`rat-players-tile-${tile.id}`} transform={`translate(${posX}, ${posY})`}>
                 {playersOnTile.map((p, idx) => {
-                  const offsetX = ((idx % 3) - 1) * 11;
-                  const offsetY = Math.floor(idx / 3) * 11 - 4;
+                  const offsetX = ((idx % 3) - 1) * 12;
+                  const offsetY = Math.floor(idx / 3) * 12 - 4;
                   const isCur = p.id === activePlayer.id;
 
                   return (
@@ -346,27 +396,27 @@ export const GameBoard: FC<GameBoardProps> = ({
                         <circle
                           cx="0"
                           cy="0"
-                          r="10"
+                          r="11"
                           fill="none"
                           stroke="#ffffff"
-                          strokeWidth="1.8"
+                          strokeWidth="2"
                           className="animate-ping opacity-75"
                         />
                       )}
                       <circle
                         cx="0"
                         cy="0"
-                        r="6.5"
+                        r="7"
                         fill={p.color?.hex || '#ec4899'}
                         stroke="#0f172a"
-                        strokeWidth="1.2"
+                        strokeWidth="1.5"
                       />
                       <text
                         x="0"
-                        y="2"
+                        y="2.5"
                         textAnchor="middle"
                         fill="#020617"
-                        fontSize="5.5"
+                        fontSize="6"
                         fontWeight="900"
                         fontFamily="sans-serif"
                       >
@@ -401,17 +451,17 @@ export const GameBoard: FC<GameBoardProps> = ({
                         <circle
                           cx="0"
                           cy="0"
-                          r="11"
+                          r="12"
                           fill="none"
                           stroke="#f59e0b"
-                          strokeWidth="2"
+                          strokeWidth="2.2"
                           className="animate-ping opacity-80"
                         />
                       )}
                       <circle
                         cx="0"
                         cy="0"
-                        r="7.5"
+                        r="8"
                         fill={p.color?.hex || '#38bdf8'}
                         stroke="#ffffff"
                         strokeWidth="1.5"
@@ -421,7 +471,7 @@ export const GameBoard: FC<GameBoardProps> = ({
                         y="2.5"
                         textAnchor="middle"
                         fill="#020617"
-                        fontSize="6.5"
+                        fontSize="7"
                         fontWeight="900"
                         fontFamily="sans-serif"
                       >
