@@ -112,6 +112,7 @@ export const GameBoard: FC<GameBoardProps> = ({
       case 'BUSINESS': return '#0c4a6e';
       case 'DREAM': return '#78350f';
       case 'TAX_AUDIT': return '#7f1d1d';
+      case 'DIVORCE': return '#881337';
       case 'LAWSUIT': return '#831843';
       case 'DONATION': return '#4c1d95';
       default: return '#1e1b4b';

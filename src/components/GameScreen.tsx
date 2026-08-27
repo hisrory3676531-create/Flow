@@ -162,7 +162,7 @@ export const GameScreen: FC<GameScreenProps> = ({
     }
   }, [currentTurnIndex, isMyTurn]);
 
-  // Таймер хода: не сбрасывает карточки, пока игрок принимает решение
+  // Таймер хода
   useEffect(() => {
     setTimeLeft(TURN_DURATION_SECONDS);
 
@@ -486,7 +486,13 @@ export const GameScreen: FC<GameScreenProps> = ({
           setActiveFastTrackEvent(currentTile);
           openedCardData = {
             ...currentTile,
-            description: 'Налоговый аудит: списание 20% от наличных средств.'
+            description: 'Налоговый аудит: списание 50% всех наличных средств.'
+          };
+        } else if (currentTile.type === 'DIVORCE') {
+          setActiveFastTrackEvent(currentTile);
+          openedCardData = {
+            ...currentTile,
+            description: 'Раздел имущества! Вы теряете все свободные наличные средства.'
           };
         } else if (currentTile.type === 'LAWSUIT') {
           setActiveFastTrackEvent(currentTile);
@@ -583,7 +589,7 @@ export const GameScreen: FC<GameScreenProps> = ({
         currentTile,
         cardData: openedCardData
       });
-    }, 2000);
+    }, 1400);
   };
 
   const handleBuyFastTrackDeal = (tile: FastTrackTile) => {
@@ -1146,7 +1152,7 @@ export const GameScreen: FC<GameScreenProps> = ({
         />
       )}
 
-      {/* Модальное окно событий Fast Track (Мечта, Налоги, Иск, Фонд) */}
+      {/* Модальное окно событий Fast Track (Мечта, Налоги, Развод, Иск, Фонд) */}
       {isMyTurn && activeFastTrackEvent && (
         <FastTrackEventModal
           tile={activeFastTrackEvent}
@@ -1157,15 +1163,24 @@ export const GameScreen: FC<GameScreenProps> = ({
             setActiveFastTrackEvent(null);
           }}
           onConfirm={() => {
-            if (activeFastTrackEvent.type === 'TAX_AUDIT') {
+            if (activeFastTrackEvent.type === 'DIVORCE') {
               soundManager.playExpenseSound();
-              const taxAmt = Math.round(player.cash * 0.2);
+              const lostCash = player.cash;
+              setPlayer((prev) => ({ ...prev, cash: 0 }));
+              socket.emit('player_update_financials', {
+                roomId,
+                updatedPlayer: { userId: player.userId, cash: 0 },
+                logMessage: `💔 ${player.name} пережил развод и потерял все накопленные наличные (-$${lostCash.toLocaleString()})!`
+              });
+            } else if (activeFastTrackEvent.type === 'TAX_AUDIT') {
+              soundManager.playExpenseSound();
+              const taxAmt = Math.round(player.cash * 0.5);
               const newCash = Math.max(0, player.cash - taxAmt);
               setPlayer((prev) => ({ ...prev, cash: newCash }));
               socket.emit('player_update_financials', {
                 roomId,
                 updatedPlayer: { userId: player.userId, cash: newCash },
-                logMessage: `⚖️ ${player.name} оплатил налоговый аудит: -$${taxAmt.toLocaleString()}`
+                logMessage: `⚖️ ${player.name} оплатил налоговый аудит (50%): -$${taxAmt.toLocaleString()}`
               });
             } else if (activeFastTrackEvent.type === 'LAWSUIT') {
               soundManager.playExpenseSound();

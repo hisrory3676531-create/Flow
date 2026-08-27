@@ -4,6 +4,7 @@ export type FastTrackTileType =
   | 'DREAM'
   | 'TAX_AUDIT'
   | 'LAWSUIT'
+  | 'DIVORCE'
   | 'DONATION';
 
 export interface FastTrackTile {
@@ -67,7 +68,7 @@ export const FAST_TRACK_TILES: FastTrackTile[] = [
     type: 'TAX_AUDIT',
     icon: '⚖️',
     color: '#ef4444',
-    description: 'Внеплановая проверка. Выплата 20% от текущих наличных средств.'
+    description: 'Внеплановая проверка. Выплата 50% от текущих наличных средств!'
   },
 
   // 5 - 9
@@ -116,7 +117,7 @@ export const FAST_TRACK_TILES: FastTrackTile[] = [
     title: 'Судебный иск инвесторов',
     type: 'LAWSUIT',
     icon: '🏛️',
-    color: '#ef4444',
+    color: '#f43f5e',
     description: 'Юридические расходы и компенсация ущерба: штраф 50 000 $.'
   },
 
@@ -205,11 +206,11 @@ export const FAST_TRACK_TILES: FastTrackTile[] = [
   },
   {
     id: 18,
-    title: 'Налоговый аудит',
-    type: 'TAX_AUDIT',
-    icon: '⚖️',
-    color: '#ef4444',
-    description: 'Внеплановая проверка. Выплата 20% от текущих наличных средств.'
+    title: 'Развод',
+    type: 'DIVORCE',
+    icon: '💔',
+    color: '#dc2626',
+    description: 'Раздел имущества! Вы теряете все свободные наличные средства.'
   },
   {
     id: 19,
@@ -255,11 +256,11 @@ export const FAST_TRACK_TILES: FastTrackTile[] = [
   },
   {
     id: 23,
-    title: 'Судебный иск по патентам',
-    type: 'LAWSUIT',
-    icon: '🏛️',
+    title: 'Налоговый аудит',
+    type: 'TAX_AUDIT',
+    icon: '⚖️',
     color: '#ef4444',
-    description: 'Патентный спор: урегулирование претензий обошлось в 50 000 $.'
+    description: 'Внеплановая проверка. Выплата 50% от текущих наличных средств!'
   },
   {
     id: 24,
