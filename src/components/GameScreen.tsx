@@ -17,6 +17,7 @@ import { BankruptcyModal } from './BankruptcyModal';
 import { SpectatorCardModal } from './SpectatorCardModal';
 import { DealCard, DoodadCard, MarketCard, DOODADS, MARKET_CARDS } from '../data/cards.data';
 import { socket } from '../services/socket';
+import { soundManager } from '../services/sound.service';
 import { DealTradeIncomingModal } from './DealTradeIncomingModal';
 import { TurnNotification } from './TurnNotification';
 
@@ -47,6 +48,7 @@ export const GameScreen: FC<GameScreenProps> = ({
   const [incomingTradeOffer, setIncomingTradeOffer] = useState<any>(null);
   const [tradeWaitingMessage, setTradeWaitingMessage] = useState<string>('');
   const [isMarketDismissed, setIsMarketDismissed] = useState<boolean>(false);
+  const [isMuted, setIsMuted] = useState<boolean>(soundManager.getMutedState());
 
   // Таймер хода
   const [timeLeft, setTimeLeft] = useState<number>(TURN_DURATION_SECONDS);
@@ -68,7 +70,7 @@ export const GameScreen: FC<GameScreenProps> = ({
     `[Режим ЗП] ${settings?.autoPayday ? 'Автоматическое начисление' : 'Ручное получение (кнопка)'}`
   ]);
 
-  // Модальные окна для ходящего игрока
+  // Модальные окна
   const [activeDealModal, setActiveDealModal] = useState<boolean>(false);
   const [activeDoodadCard, setActiveDoodadCard] = useState<DoodadCard | null>(null);
   const [activeMarketCard, setActiveMarketCard] = useState<MarketCard | null>(null);
@@ -85,7 +87,11 @@ export const GameScreen: FC<GameScreenProps> = ({
     setLogs((prev) => [msg, ...prev]);
   };
 
-  // Автоматический переход хода
+  const handleToggleMute = () => {
+    const nextMute = soundManager.toggleMute();
+    setIsMuted(nextMute);
+  };
+
   const finishTurnAction = () => {
     setActiveDealModal(false);
     setActiveDoodadCard(null);
@@ -100,11 +106,17 @@ export const GameScreen: FC<GameScreenProps> = ({
     socket.emit('player_close_card', { roomId, autoEndTurn: true });
   };
 
-  // Ссылка на актуальный finishTurnAction для таймера
   const finishTurnActionRef = useRef(finishTurnAction);
   finishTurnActionRef.current = finishTurnAction;
 
-  // Таймер хода: отсчет и автозавершение
+  // Оповещение о наступлении хода
+  useEffect(() => {
+    if (isMyTurn) {
+      soundManager.playYourTurn();
+    }
+  }, [currentTurnIndex, isMyTurn]);
+
+  // Таймер хода
   useEffect(() => {
     setTimeLeft(TURN_DURATION_SECONDS);
 
@@ -124,7 +136,7 @@ export const GameScreen: FC<GameScreenProps> = ({
     return () => clearInterval(interval);
   }, [currentTurnIndex, isMyTurn]);
 
-  // Подключение к сокету и слушатели
+  // Сетевые сокеты
   useEffect(() => {
     socket.emit('join_room', {
       roomId,
@@ -143,6 +155,7 @@ export const GameScreen: FC<GameScreenProps> = ({
     });
 
     socket.on('deal_trade_offered', (offer) => {
+      soundManager.playYourTurn();
       if (offer.toUserId === player.userId) {
         setIncomingTradeOffer(offer);
       } else if (offer.fromUserId === player.userId) {
@@ -204,14 +217,15 @@ export const GameScreen: FC<GameScreenProps> = ({
 
   const checkVictory = (passive: number, expenses: number) => {
     if (passive > expenses && !showVictoryModal) {
+      soundManager.playVictory();
       setShowVictoryModal(true);
       addLog(`🏆 ПОБЕДА! Пассивный доход ($${passive}) превысил расходы ($${expenses})!`);
     }
   };
 
-  // Ручное получение зарплаты
   const handleClaimManualPayday = () => {
     if (pendingPayday > 0) {
+      soundManager.playCoinSound();
       const claimedAmount = pendingPayday;
       setPendingPayday(0);
 
@@ -226,7 +240,6 @@ export const GameScreen: FC<GameScreenProps> = ({
     }
   };
 
-  // Завершение хода вручную
   const handleEndTurn = () => {
     if (pendingPayday > 0) {
       addLog(`❌ Вы забыли забрать ЗП! Неполученные +${pendingPayday.toLocaleString()}$ сгорели.`);
@@ -238,7 +251,6 @@ export const GameScreen: FC<GameScreenProps> = ({
     socket.emit('player_end_turn', { roomId });
   };
 
-  // Бросок кубика
   const handleRollDice = () => {
     if (!isMyTurn || hasRolledThisTurn) return;
 
@@ -249,6 +261,7 @@ export const GameScreen: FC<GameScreenProps> = ({
       return;
     }
 
+    soundManager.playDiceRoll();
     setIsRolling(true);
 
     setTimeout(() => {
@@ -280,6 +293,7 @@ export const GameScreen: FC<GameScreenProps> = ({
       if (passedPaydayCount > 0) {
         const totalCashflowEarned = player.financials.monthlyCashflow * passedPaydayCount;
         if (settings?.autoPayday) {
+          soundManager.playCoinSound();
           paydayEarned = totalCashflowEarned;
         } else {
           setPendingPayday(totalCashflowEarned);
@@ -293,6 +307,7 @@ export const GameScreen: FC<GameScreenProps> = ({
         setActiveDealModal(true);
         openedCardData = { title: 'Выбирает вариант сделки', description: 'Игрок просматривает список сделок и оценивает доходность.' };
       } else if (currentTile.type === 'DOODAD') {
+        soundManager.playExpenseSound();
         const randomDoodad = DOODADS[Math.floor(Math.random() * DOODADS.length)];
         setActiveDoodadCard(randomDoodad);
         openedCardData = randomDoodad;
@@ -305,6 +320,7 @@ export const GameScreen: FC<GameScreenProps> = ({
         setShowCharityModal(true);
         openedCardData = { title: 'Благотворительность', description: 'Игрок решает, пожертвовать ли 10% дохода.' };
       } else if (currentTile.type === 'DOWNTURN') {
+        soundManager.playExpenseSound();
         setShowDownturnModal(true);
         openedCardData = { title: 'Увольнение с работы', description: 'Игрок попал под сокращение и пропускает 2 хода.' };
       } else if (currentTile.type === 'BABY') {
@@ -328,6 +344,7 @@ export const GameScreen: FC<GameScreenProps> = ({
   };
 
   const handleBuyDeal = (deal: DealCard, stockCount?: number, borrowedAmount: number = 0) => {
+    soundManager.playCoinSound();
     const isStock = deal.type === 'STOCK';
     const payment = isStock ? deal.cost * (stockCount || 100) : deal.downPayment;
     const addedCashflow = deal.cashflow;
@@ -388,6 +405,7 @@ export const GameScreen: FC<GameScreenProps> = ({
   };
 
   const handleAcceptTrade = () => {
+    soundManager.playCoinSound();
     socket.emit('respond_deal_trade', {
       roomId,
       accepted: true,
@@ -406,6 +424,7 @@ export const GameScreen: FC<GameScreenProps> = ({
   };
 
   const handleSellAsset = (asset: Asset, offerPrice: number) => {
+    soundManager.playCoinSound();
     const isStock = asset.type === 'STOCK';
     const mortgage = asset.mortgage || 0;
     const netPayout = isStock ? offerPrice * (asset.sharesCount || 1) : offerPrice - mortgage;
@@ -436,6 +455,7 @@ export const GameScreen: FC<GameScreenProps> = ({
   };
 
   const handleExecuteSplit = (symbol: string, ratio: number) => {
+    soundManager.playCoinSound();
     const newAssets = player.assets.map((a) => {
       if (a.type === 'STOCK' && a.title.includes(symbol)) {
         const newCount = (a.sharesCount || 0) * ratio;
@@ -459,6 +479,7 @@ export const GameScreen: FC<GameScreenProps> = ({
   };
 
   const handleConfirmBaby = () => {
+    soundManager.playExpenseSound();
     if (player.financials.childCount < 3) {
       const expensePerChild = player.profession.childExpensePerCount;
       const newChildCount = player.financials.childCount + 1;
@@ -483,6 +504,7 @@ export const GameScreen: FC<GameScreenProps> = ({
   };
 
   const handleDonateCharity = (amount: number) => {
+    soundManager.playCoinSound();
     socket.emit('player_update_financials', {
       roomId,
       updatedPlayer: {
@@ -496,6 +518,7 @@ export const GameScreen: FC<GameScreenProps> = ({
   };
 
   const handleDownturnConfirm = () => {
+    soundManager.playExpenseSound();
     const cost = player.financials.totalExpenses;
     socket.emit('player_update_financials', {
       roomId,
@@ -510,6 +533,7 @@ export const GameScreen: FC<GameScreenProps> = ({
   };
 
   const handleTakeLoan = (amount: number) => {
+    soundManager.playCoinSound();
     const addedPayment = Math.round(amount * 0.1);
     const newDebt = (player.bankDebt || 0) + amount;
     const newBankPayment = player.financials.bankLoanPayment + addedPayment;
@@ -534,6 +558,7 @@ export const GameScreen: FC<GameScreenProps> = ({
   };
 
   const handlePayLoan = (amount: number) => {
+    soundManager.playCoinSound();
     const reducedPayment = Math.round(amount * 0.1);
     const newDebt = Math.max(0, (player.bankDebt || 0) - amount);
     const newBankPayment = Math.max(0, player.financials.bankLoanPayment - reducedPayment);
@@ -562,6 +587,7 @@ export const GameScreen: FC<GameScreenProps> = ({
     cost: number,
     paymentReduction: number
   ) => {
+    soundManager.playCoinSound();
     const newExpenses = player.financials.totalExpenses - paymentReduction;
     const newCashflow = player.financials.totalIncome - newExpenses;
     const updatedProfession = { ...player.profession };
@@ -595,6 +621,7 @@ export const GameScreen: FC<GameScreenProps> = ({
   };
 
   const handleLiquidateAsset = (asset: Asset) => {
+    soundManager.playExpenseSound();
     const liquidationValue = Math.round(asset.downPayment * 0.5);
     const updatedPassive = Math.max(0, player.financials.passiveIncome - asset.cashflow);
     const updatedTotalIncome = player.financials.salary + updatedPassive;
@@ -618,6 +645,7 @@ export const GameScreen: FC<GameScreenProps> = ({
   };
 
   const handleDeclareBankruptcy = () => {
+    soundManager.playExpenseSound();
     const reducedDebt = Math.round((player.bankDebt || 0) * 0.5);
     const reducedBankPayment = Math.round(player.financials.bankLoanPayment * 0.5);
     const newTotalExpenses = player.financials.totalExpenses - reducedBankPayment;
@@ -648,13 +676,11 @@ export const GameScreen: FC<GameScreenProps> = ({
 
   return (
     <div className="h-[100dvh] bg-[#130620] text-slate-100 flex flex-col overflow-hidden select-none">
-      {/* Баннер оповещения о смене активного игрока */}
       <TurnNotification
         playerName={activeCurrentPlayer?.name || ''}
         isMyTurn={isMyTurn}
       />
 
-      {/* Компактный однострочный хедер с таймером */}
       <header className="bg-[#1f0a33] border-b border-purple-900/50 px-2.5 sm:px-6 py-1.5 flex items-center justify-between shadow-lg shrink-0">
         <div className="flex items-center space-x-1.5">
           <div className="w-5 h-5 rounded bg-amber-400 flex items-center justify-center font-black text-slate-950 text-[10px]">
@@ -666,6 +692,15 @@ export const GameScreen: FC<GameScreenProps> = ({
         </div>
 
         <div className="flex items-center space-x-2">
+          {/* Кнопка включения / выключения звука */}
+          <button
+            onClick={handleToggleMute}
+            className="text-[11px] bg-slate-900 border border-slate-700 hover:border-slate-500 px-2 py-0.5 rounded-lg transition cursor-pointer"
+            title={isMuted ? 'Включить звук' : 'Выключить звук'}
+          >
+            {isMuted ? '🔇' : '🔊'}
+          </button>
+
           {/* Виджет таймера */}
           <div
             className={`text-[11px] font-mono font-black px-2 py-0.5 rounded-lg flex items-center space-x-1 border transition-all ${
@@ -702,7 +737,6 @@ export const GameScreen: FC<GameScreenProps> = ({
         </div>
       </header>
 
-      {/* Основная рабочая область */}
       <main className="flex-1 flex flex-col lg:grid lg:grid-cols-12 gap-2 p-1.5 sm:p-3 w-full overflow-hidden relative">
         <section className="flex-1 lg:col-span-8 xl:col-span-9 flex items-center justify-center min-h-0 pb-16 lg:pb-0">
           <GameBoard
@@ -788,6 +822,7 @@ export const GameScreen: FC<GameScreenProps> = ({
           card={activeDoodadCard}
           playerCash={player.cash}
           onPay={(amt) => {
+            soundManager.playExpenseSound();
             socket.emit('player_update_financials', {
               roomId,
               updatedPlayer: {
