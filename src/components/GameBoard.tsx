@@ -36,7 +36,6 @@ export const GameBoard: FC<GameBoardProps> = ({
 
   const TOTAL_TILES = 24;
   
-  // Координаты центра и увеличенные радиусы для заполнения экрана
   const CENTER_X = isMobile ? 375 : 600;
   const CENTER_Y = isMobile ? 600 : 375;
   const INNER_R = isMobile ? 155 : 145;
@@ -116,7 +115,6 @@ export const GameBoard: FC<GameBoardProps> = ({
 
   const getFastTrackRect = (index: number) => {
     if (isMobile) {
-      // Вертикальный формат 750 x 1200 под экраны смартфонов
       const W_TOP = 114;
       const H_TOP = 100;
       const W_SIDE = 100;
@@ -126,30 +124,25 @@ export const GameBoard: FC<GameBoardProps> = ({
       const TOP_Y = 14;
       const BOTTOM_Y = 1086;
 
-      // 0..5 (Верх)
       if (index >= 0 && index <= 5) {
         const x = LEFT_X + index * 120.4;
         return { x, y: TOP_Y, w: W_TOP, h: H_TOP, center: { x: x + W_TOP / 2, y: TOP_Y + H_TOP / 2 } };
       }
-      // 6..14 (Правая колонка)
       if (index >= 6 && index <= 14) {
         const sub = index - 5;
         const y = TOP_Y + sub * 107.2;
         return { x: RIGHT_X, y, w: W_SIDE, h: H_SIDE, center: { x: RIGHT_X + W_SIDE / 2, y: y + H_SIDE / 2 } };
       }
-      // 15..20 (Низ)
       if (index >= 15 && index <= 20) {
         const sub = index - 15;
         const x = RIGHT_X - sub * 120.4;
         return { x, y: BOTTOM_Y, w: W_TOP, h: H_TOP, center: { x: x + W_TOP / 2, y: BOTTOM_Y + H_TOP / 2 } };
       }
-      // 21..29 (Левая колонка)
       const sub = index - 20;
       const y = BOTTOM_Y - sub * 107.2;
       return { x: LEFT_X, y, w: W_SIDE, h: H_SIDE, center: { x: LEFT_X + W_SIDE / 2, y: y + H_SIDE / 2 } };
     }
 
-    // Десктоп 1200 x 750
     const W = 110;
     const H = 64;
     const LEFT_X = 25;
@@ -180,7 +173,6 @@ export const GameBoard: FC<GameBoardProps> = ({
 
   return (
     <div className="w-full h-full flex flex-col justify-between select-none">
-      {/* Верхний статус-бар */}
       <div className="flex items-center justify-between gap-1 bg-[#1c082e]/90 border border-purple-900/50 rounded-xl px-2 py-1 mb-1 shrink-0 shadow-md">
         <div className="flex items-center space-x-1.5">
           <span className="text-[11px] font-black text-amber-300 tracking-wider">CASHFLOW</span>
@@ -213,14 +205,12 @@ export const GameBoard: FC<GameBoardProps> = ({
         </div>
       </div>
 
-      {/* Адаптивный SVG Canvas */}
       <div className="relative w-full flex-1 flex items-center justify-center min-h-0 overflow-hidden bg-[#1c082e]/90 border border-purple-900/50 rounded-2xl shadow-2xl p-1">
         <svg
           viewBox={viewBoxValue}
           preserveAspectRatio="xMidYMid meet"
           className="w-full h-full max-h-full select-none"
         >
-          {/* Фон доски */}
           <rect
             x="6"
             y="6"
@@ -232,7 +222,6 @@ export const GameBoard: FC<GameBoardProps> = ({
             strokeWidth="2"
           />
 
-          {/* ВНЕШНИЙ ТРЕК: FAST TRACK (30 ЯЧЕЕК) */}
           {FAST_TRACK_TILES.map((tile) => {
             const r = getFastTrackRect(tile.id);
             const isTargeted = activePlayer.isOnFastTrack && activePlayer.fastTrackPosition === tile.id;
@@ -286,11 +275,9 @@ export const GameBoard: FC<GameBoardProps> = ({
             );
           })}
 
-          {/* ВНУТРЕННИЙ КРУГ: МАЛЫЙ КРУГ */}
           <circle cx={CENTER_X} cy={CENTER_Y} r={OUTER_R + 5} fill="#230640" stroke="#eab308" strokeWidth="3" />
           <circle cx={CENTER_X} cy={CENTER_Y} r={INNER_R - 4} fill="#0d0218" stroke="#a855f7" strokeWidth="2" />
 
-          {/* 24 сектора малого круга */}
           {BOARD_TILES.map((tile, i) => {
             const path = getSectorPath(i);
             const deg = getSectorAngle(i);
@@ -348,7 +335,6 @@ export const GameBoard: FC<GameBoardProps> = ({
             );
           })}
 
-          {/* Центр круга */}
           <g transform={`translate(${CENTER_X}, ${CENTER_Y})`}>
             <circle cx="0" cy="0" r={isMobile ? 125 : 120} fill="#1b0533" stroke="#f59e0b" strokeWidth="2.5" />
             <text x="0" y="-55" textAnchor="middle" fill="#facc15" fontSize={isMobile ? '24' : '20'} fontWeight="900" letterSpacing="1.5">
@@ -368,7 +354,6 @@ export const GameBoard: FC<GameBoardProps> = ({
             </text>
           </g>
 
-          {/* ФИШКИ ИГРОКОВ: МАЛЫЙ КРУГ */}
           {BOARD_TILES.map((tile) => {
             const playersOnTile = safePlayers.filter(
               (p) => !p.isOnFastTrack && (p.position ?? 0) === tile.id
@@ -428,7 +413,6 @@ export const GameBoard: FC<GameBoardProps> = ({
             );
           })}
 
-          {/* ФИШКИ ИГРОКОВ: FAST TRACK */}
           {FAST_TRACK_TILES.map((tile) => {
             const playersOnTile = safePlayers.filter(
               (p) => p.isOnFastTrack && (p.fastTrackPosition ?? 0) === tile.id

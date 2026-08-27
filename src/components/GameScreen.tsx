@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import type { FC } from 'react';
 import type { Player, Asset, GameSettings } from '../types/game.types';
 import type { RatColor } from './ProfileSetupScreen';
-import { GameBoard, BoardPlayer } from './GameBoard';
+import { GameBoard, type BoardPlayer } from './GameBoard';
 import { FinancialStatementPanel } from './FinancialStatementPanel';
 import { BOARD_TILES } from '../data/board.data';
 import { FAST_TRACK_TILES, FastTrackTile } from '../data/fastTrack.data';
@@ -239,7 +239,6 @@ export const GameScreen: FC<GameScreenProps> = ({
     };
   }, [roomId, player.userId]);
 
-  // Проверка выхода на Fast Track в конце хода
   const checkRatRaceEscape = (passive: number, expenses: number) => {
     if (player.currentTrack === 'RAT_RACE' && passive > expenses && !showFastTrackTransition) {
       soundManager.playVictory();
@@ -248,7 +247,6 @@ export const GameScreen: FC<GameScreenProps> = ({
     }
   };
 
-  // Переход на Скоростную дорожку
   const handleEnterFastTrack = () => {
     const fastIncome = player.financials.passiveIncome * 10;
     const updatedPlayer: Partial<Player> = {
@@ -317,7 +315,6 @@ export const GameScreen: FC<GameScreenProps> = ({
     socket.emit('player_end_turn', { roomId });
   };
 
-  // БРОСОК КУБИКА (РАЗДЕЛЕНИЕ ДЛЯ RAT RACE И FAST TRACK)
   const handleRollDice = () => {
     if (!isMyTurn || hasRolledThisTurn) return;
 
@@ -337,14 +334,12 @@ export const GameScreen: FC<GameScreenProps> = ({
       let dice3 = 0;
 
       if (isOnFastTrack) {
-        // На Fast Track бросают сразу 2 кубика (или 3 при пожертвовании)
         dice2 = Math.floor(Math.random() * 6) + 1;
         if (charityTurnsLeft > 0) {
           dice3 = Math.floor(Math.random() * 6) + 1;
           setCharityTurnsLeft((prev) => prev - 1);
         }
       } else {
-        // На Малом круге 1 кубик (или 2 при благотворительности)
         if (charityTurnsLeft > 0) {
           dice2 = Math.floor(Math.random() * 6) + 1;
           setCharityTurnsLeft((prev) => prev - 1);
@@ -356,15 +351,11 @@ export const GameScreen: FC<GameScreenProps> = ({
       setIsRolling(false);
       setHasRolledThisTurn(true);
 
-      // -------------------------------------------------------------
-      // 1. ХОД НА СКОРОСТНОЙ ДОРОЖКЕ (FAST TRACK - 30 КЛЕТОК)
-      // -------------------------------------------------------------
       if (isOnFastTrack) {
         const oldPos = player.fastTrackPosition ?? 0;
         const newPos = (oldPos + totalDice) % 30;
         const currentTile = FAST_TRACK_TILES[newPos];
 
-        // Проверка прохождения через День Инвестора
         let passedPaydayCount = 0;
         for (let step = 1; step <= totalDice; step++) {
           const stepPos = (oldPos + step) % 30;
@@ -385,8 +376,7 @@ export const GameScreen: FC<GameScreenProps> = ({
           setActiveFastTrackDeal(currentTile);
           openedCardData = currentTile;
         } else if (currentTile.type === 'DREAM') {
-          // Попадание на Мечту
-          if (currentTile.dreamId === player.dream.id || currentTile.title === player.dream.title) {
+          if (player.dream && (currentTile.dreamId === player.dream.id || currentTile.title === player.dream.title)) {
             if (player.cash >= (currentTile.cost || 0)) {
               soundManager.playVictory();
               setShowVictoryModal(true);
@@ -455,9 +445,6 @@ export const GameScreen: FC<GameScreenProps> = ({
         return;
       }
 
-      // -------------------------------------------------------------
-      // 2. ХОД НА МАЛОМ КРУГЕ (RAT RACE - 24 КЛЕТКИ)
-      // -------------------------------------------------------------
       const oldPos = player.boardPosition ?? 0;
       const newPos = (oldPos + totalDice) % 24;
       const currentTile = BOARD_TILES[newPos];
@@ -523,7 +510,6 @@ export const GameScreen: FC<GameScreenProps> = ({
     }, 400);
   };
 
-  // Покупка бизнеса на Fast Track
   const handleBuyFastTrackDeal = (tile: FastTrackTile) => {
     soundManager.playCoinSound();
     const cost = tile.cost || 0;
@@ -552,7 +538,6 @@ export const GameScreen: FC<GameScreenProps> = ({
       logMessage: `🏢 ${player.name} приобрел бизнес: «${tile.title}» (++$${addedCashflow.toLocaleString()}/ход)!`
     });
 
-    // Условие победы #2: увеличение потока на Fast Track на +$50,000 от стартового
     const flowGain = updatedFastCashflow - (player.fastTrackInitialCashflow || 0);
     if (flowGain >= 50000) {
       soundManager.playVictory();
@@ -910,6 +895,39 @@ export const GameScreen: FC<GameScreenProps> = ({
         </div>
 
         <div className="flex items-center space-x-2">
+          {/* Чит-кнопка для быстрого тестирования Fast Track */}
+          <button
+            onClick={() => {
+              const hugePassive = (player.financials?.totalExpenses || 1500) + 15000;
+              const updatedFin = {
+                ...player.financials,
+                passiveIncome: hugePassive,
+                totalIncome: player.financials.salary + hugePassive,
+                monthlyCashflow: player.financials.salary + hugePassive - player.financials.totalExpenses
+              };
+
+              setPlayer((prev) => ({
+                ...prev,
+                financials: updatedFin
+              }));
+
+              socket.emit('player_update_financials', {
+                roomId,
+                updatedPlayer: {
+                  userId: player.userId,
+                  financials: updatedFin
+                },
+                logMessage: `⚡ [ЧИТ] ${player.name} получил пассивный доход $${hugePassive.toLocaleString()}`
+              });
+
+              setShowFastTrackTransition(true);
+            }}
+            className="bg-amber-500/30 border border-amber-400 hover:bg-amber-500/50 text-amber-300 font-black px-2 py-0.5 rounded-lg text-[10px] transition cursor-pointer flex items-center space-x-1 animate-pulse"
+          >
+            <span>⚡</span>
+            <span>Fast Track Чит</span>
+          </button>
+
           <button
             onClick={handleToggleMute}
             className="text-[11px] bg-slate-900 border border-slate-700 hover:border-slate-500 px-2 py-0.5 rounded-lg transition cursor-pointer"
@@ -1096,48 +1114,7 @@ export const GameScreen: FC<GameScreenProps> = ({
           onClose={() => setShowBankModal(false)}
         />
       )}
-{/* ЧИТ-КНОПКА ДЛЯ ТЕСТА FAST TRACK */}
-          <button
-            onClick={() => {
-              const hugePassive = (player.financials?.totalExpenses || 1500) + 15000;
-              const updatedFin = {
-                ...player.financials,
-                passiveIncome: hugePassive,
-                totalIncome: player.financials.salary + hugePassive,
-                monthlyCashflow: player.financials.salary + hugePassive - player.financials.totalExpenses
-              };
 
-              setPlayer((prev) => ({
-                ...prev,
-                financials: updatedFin
-              }));
-
-              socket.emit('player_update_financials', {
-                roomId,
-                updatedPlayer: {
-                  userId: player.userId,
-                  financials: updatedFin
-                },
-                logMessage: `⚡ [ЧИТ] ${player.name} получил пассивный доход $${hugePassive.toLocaleString()}`
-              });
-
-              setShowFastTrackTransition(true);
-            }}
-            className="bg-amber-500/30 border border-amber-400 hover:bg-amber-500/50 text-amber-300 font-black px-2 py-0.5 rounded-lg text-[10px] transition cursor-pointer flex items-center space-x-1 animate-pulse"
-          >
-            <span>⚡</span>
-            <span>Fast Track Чит</span>
-          </button>
-
-          {!isOnFastTrack && (
-            <button
-              onClick={() => setShowBankModal(true)}
-              className="bg-emerald-500/20 border border-emerald-500/40 hover:bg-emerald-500/30 text-emerald-400 font-bold px-2 py-0.5 rounded-lg text-[10px] transition cursor-pointer flex items-center space-x-1"
-            >
-              <span>🏦</span>
-              <span>Банк</span>
-            </button>
-          )}
       {isMyTurn && showBabyModal && (
         <BabyModal
           childCount={player.financials.childCount}
