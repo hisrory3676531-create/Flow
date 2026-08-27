@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { Player, GameSettings } from './types/game.types';
+import type { Player, GameSettings, Dream } from './types/game.types';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { ProfileSetupScreen, RatColor } from './components/ProfileSetupScreen';
 import { LobbyBrowserScreen } from './components/LobbyBrowserScreen';
@@ -23,6 +23,18 @@ export const App = () => {
 
   const [playerName, setPlayerName] = useState<string>(() => {
     return localStorage.getItem('cashflow_userName') || '';
+  });
+
+  const [playerDream, setPlayerDream] = useState<Dream | null>(() => {
+    const saved = localStorage.getItem('cashflow_selected_dream');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
   });
 
   const [activeRoomId, setActiveRoomId] = useState<string>('');
@@ -75,7 +87,8 @@ export const App = () => {
           financials: me.financials,
           assets: me.assets || [],
           isBankrupt: false,
-          skippedTurns: 0
+          skippedTurns: 0,
+          dream: me.dream || playerDream || undefined
         });
 
         if (me.color) {
@@ -124,7 +137,7 @@ export const App = () => {
       socket.off('session_restore_failed', handleSessionFailed);
       socket.off('error_message', handleErrorMessage);
     };
-  }, [userId, playerName]);
+  }, [userId, playerName, playerDream]);
 
   const handleAcceptRules = () => {
     if (playerName) {
@@ -134,9 +147,11 @@ export const App = () => {
     }
   };
 
-  const handleProfileComplete = (name: string) => {
+  const handleProfileComplete = (name: string, dream: Dream) => {
     setPlayerName(name);
+    setPlayerDream(dream);
     localStorage.setItem('cashflow_userName', name);
+    localStorage.setItem('cashflow_selected_dream', JSON.stringify(dream));
     setStep('LOBBY_BROWSER');
   };
 
@@ -164,7 +179,8 @@ export const App = () => {
         userId,
         name: playerName,
         color: null,
-        profession: null
+        profession: null,
+        dream: playerDream
       }
     });
 
@@ -191,7 +207,8 @@ export const App = () => {
         userId,
         name: playerName,
         color: null,
-        profession: null
+        profession: null,
+        dream: playerDream
       }
     });
 
@@ -213,7 +230,8 @@ export const App = () => {
         financials: me.financials,
         assets: me.assets || [],
         isBankrupt: false,
-        skippedTurns: 0
+        skippedTurns: 0,
+        dream: me.dream || playerDream || undefined
       });
       setPlayerColor(me.color);
       setGameSettings({
@@ -252,7 +270,7 @@ export const App = () => {
 
       {step === 'PROFILE' && (
         <ProfileSetupScreen
-          onComplete={(name) => handleProfileComplete(name)}
+          onComplete={(name, dream) => handleProfileComplete(name, dream)}
         />
       )}
 
