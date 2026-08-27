@@ -280,23 +280,32 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('game_started', room);
   });
 
-  socket.on('player_roll_dice', ({ roomId, diceValue, newPosition, paydayAmount, currentTile, cardData }) => {
+ socket.on('player_roll_dice', ({ roomId, diceValue, newPosition, fastTrackPosition, currentTrack, paydayAmount, currentTile, cardData }) => {
     const room = rooms.get(roomId);
     if (!room) return;
 
     const player = room.players[room.currentTurnIndex];
     if (player) {
-      // Если клиент передал точную рассчитанную позицию (newPosition) - берем её, иначе считаем по умолчанию
-      const finalPos = typeof newPosition === 'number' ? newPosition : ((Number(player.boardPosition) || 0) + Number(diceValue)) % 24;
+      const finalPos = typeof newPosition === 'number'
+        ? newPosition
+        : (typeof fastTrackPosition === 'number' ? fastTrackPosition : ((Number(player.boardPosition) || 0) + Number(diceValue)) % 24);
+
       player.boardPosition = finalPos;
       player.position = finalPos;
+
+      // Если игрок на Fast Track — синхронизируем fastTrackPosition
+      if (player.currentTrack === 'FAST_TRACK' || currentTrack === 'FAST_TRACK') {
+        player.currentTrack = 'FAST_TRACK';
+        player.isOnFastTrack = true;
+        player.fastTrackPosition = finalPos;
+      }
 
       if (paydayAmount > 0) {
         player.cash = (player.cash || 0) + paydayAmount;
         room.logs.unshift(`💰 ${player.name}: Получен чек Payday (+${paydayAmount.toLocaleString()}$)`);
       }
       
-      room.logs.unshift(`🎲 ${player.name} выбросил ${diceValue} ➔ «${currentTile.title}» (Клетка #${finalPos})`);
+      room.logs.unshift(`🎲 ${player.name} выбросил ${diceValue} ➔ «${currentTile?.title || 'Клетка'}» (#${finalPos})`);
     }
 
     room.activeCardData = cardData ? { ...cardData, ownerName: player?.name, ownerId: player?.id } : null;

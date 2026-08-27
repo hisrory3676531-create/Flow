@@ -184,11 +184,15 @@ export const GameScreen: FC<GameScreenProps> = ({
       setTradeWaitingMessage('');
     });
 
-    socket.on('sync_game_state', (roomData) => {
+socket.on('sync_game_state', (roomData) => {
       if (roomData.players) {
         setRoomPlayers(
           roomData.players.map((p: any) => {
             const isFT = p.currentTrack === 'FAST_TRACK' || p.isOnFastTrack;
+            const ftPos = typeof p.fastTrackPosition === 'number'
+              ? p.fastTrackPosition
+              : (isFT ? (p.position ?? p.boardPosition ?? 0) : 0);
+
             return {
               id: p.id,
               name: p.name,
@@ -196,7 +200,7 @@ export const GameScreen: FC<GameScreenProps> = ({
               color: p.color,
               isCurrentTurn: p.isCurrentTurn,
               isOnFastTrack: isFT,
-              fastTrackPosition: isFT ? (p.fastTrackPosition ?? p.position ?? 0) : (p.fastTrackPosition ?? 0)
+              fastTrackPosition: ftPos
             };
           })
         );
@@ -204,13 +208,17 @@ export const GameScreen: FC<GameScreenProps> = ({
         const me = roomData.players.find((p: any) => p.userId === player.userId);
         if (me) {
           const isMeFT = me.currentTrack === 'FAST_TRACK' || me.isOnFastTrack;
+          const myFtPos = typeof me.fastTrackPosition === 'number'
+            ? me.fastTrackPosition
+            : (isMeFT ? (me.position ?? me.boardPosition ?? 0) : 0);
+
           setPlayer((prev) => ({
             ...prev,
             cash: me.cash,
             bankDebt: me.bankDebt ?? prev.bankDebt ?? 0,
             boardPosition: isMeFT ? prev.boardPosition : (me.position ?? prev.boardPosition),
             currentTrack: isMeFT ? 'FAST_TRACK' : (me.currentTrack ?? prev.currentTrack),
-            fastTrackPosition: isMeFT ? (me.fastTrackPosition ?? me.position ?? prev.fastTrackPosition) : prev.fastTrackPosition,
+            fastTrackPosition: isMeFT ? myFtPos : prev.fastTrackPosition,
             fastTrackCashflow: me.fastTrackCashflow ?? prev.fastTrackCashflow ?? 0,
             fastTrackInitialCashflow: me.fastTrackInitialCashflow ?? prev.fastTrackInitialCashflow ?? 0,
             financials: me.financials ?? prev.financials,
