@@ -22,14 +22,14 @@ export const MarketModal: FC<MarketModalProps> = ({
   const cardSymbol = (card as any).symbol || (card as any).targetSymbol || '';
   const cardSubtype = (card as any).targetSubtype || '';
 
-  // Фильтруем подходящие активы игрока
+  // Точная фильтрация подходящих активов игрока под конкретное рыночное предложение
   const matchingAssets = playerAssets.filter((asset) => {
-    // 1. Акции и сплиты
+    // 1. Акции и дробления (Сплиты)
     if (card.targetType === 'STOCK' || card.targetType === 'SPLIT') {
-      return (
-        asset.type === 'STOCK' &&
-        asset.title.toUpperCase().includes(cardSymbol.toUpperCase())
-      );
+      if (asset.type !== 'STOCK') return false;
+      return cardSymbol
+        ? asset.title.toUpperCase().includes(cardSymbol.toUpperCase())
+        : true;
     }
 
     // 2. Легковые автомобили
@@ -37,29 +37,61 @@ export const MarketModal: FC<MarketModalProps> = ({
       return asset.type === 'VEHICLE' || asset.title.toLowerCase().includes('авто');
     }
 
-    // 3. Бизнес и франшизы
+    // 3. Бизнес и франшизы (строгое разделение по отраслям)
     if (card.targetType === 'BUSINESS') {
-      if (card.title.toLowerCase().includes('автомойк') || card.title.toLowerCase().includes('автосервис')) {
-        return asset.title.toLowerCase().includes('автомойка') || asset.title.toLowerCase().includes('автосервис');
+      if (asset.type !== 'BUSINESS') return false;
+
+      const cardTitleLower = card.title.toLowerCase();
+      const cardDescLower = card.description.toLowerCase();
+      const assetTitleLower = asset.title.toLowerCase();
+
+      // Аптеки
+      if (cardTitleLower.includes('аптек') || cardDescLower.includes('аптек')) {
+        return assetTitleLower.includes('аптек');
       }
-      if (card.title.toLowerCase().includes('пиццери') || card.title.toLowerCase().includes('кофейн')) {
-        return asset.title.toLowerCase().includes('пиццери') || asset.title.toLowerCase().includes('кофе');
+
+      // Автомойки и автосервисы
+      if (cardTitleLower.includes('автомойк') || cardTitleLower.includes('автосервис') || cardDescLower.includes('автосервис')) {
+        return assetTitleLower.includes('автомойк') || assetTitleLower.includes('автосервис');
       }
-      if (card.title.toLowerCase().includes('аптек')) {
-        return asset.title.toLowerCase().includes('аптек');
+
+      // Общепит (пиццерии, кофейни)
+      if (cardTitleLower.includes('пиццери') || cardTitleLower.includes('кофейн') || cardDescLower.includes('пиццери') || cardDescLower.includes('кофе')) {
+        return assetTitleLower.includes('пиццери') || assetTitleLower.includes('кофе') || assetTitleLower.includes('пивоварн');
       }
-      if (card.title.toLowerCase().includes('вендинг') || card.title.toLowerCase().includes('автомат')) {
-        return asset.title.toLowerCase().includes('автомат') || asset.title.toLowerCase().includes('постамат') || asset.title.toLowerCase().includes('киоск');
+
+      // Вендинг, постаматы, киоски
+      if (cardTitleLower.includes('вендинг') || cardTitleLower.includes('автомат') || cardDescLower.includes('вендинг')) {
+        return (
+          assetTitleLower.includes('автомат') ||
+          assetTitleLower.includes('вендинг') ||
+          assetTitleLower.includes('постамат') ||
+          assetTitleLower.includes('киоск')
+        );
       }
-      return asset.type === 'BUSINESS';
+
+      // Производство, дата-центры, детские сады, прачечные и спецтехника
+      if (cardTitleLower.includes('прачечн')) return assetTitleLower.includes('прачечн');
+      if (cardTitleLower.includes('детск')) return assetTitleLower.includes('детск');
+      if (cardTitleLower.includes('типограф')) return assetTitleLower.includes('типограф');
+      if (cardTitleLower.includes('фабрик') || cardTitleLower.includes('завод')) {
+        return assetTitleLower.includes('фабрик') || assetTitleLower.includes('производств') || assetTitleLower.includes('упаковк') || assetTitleLower.includes('швейн');
+      }
+
+      // Маникюрные островки и веб-студии не продаются под выкуп чужих специализированных сетей
+      if (assetTitleLower.includes('маникюр') || assetTitleLower.includes('веб-студи')) {
+        return false;
+      }
+
+      return true;
     }
 
-    // 4. Драгоценные металлы и антиквариат
+    // 4. Драгоценные металлы, монеты и антиквариат
     if (card.targetType === 'COMMODITY') {
       return asset.type === 'COMMODITY';
     }
 
-    // 5. Недвижимость и логистические центры (РЦ)
+    // 5. Недвижимость и логистические распределительные центры (РЦ)
     if (card.targetType === 'REAL_ESTATE') {
       if (asset.type !== 'REAL_ESTATE') return false;
 
@@ -67,49 +99,72 @@ export const MarketModal: FC<MarketModalProps> = ({
       const cardDescLower = card.description.toLowerCase();
       const assetTitleLower = asset.title.toLowerCase();
 
-      // Проверка на конкретные РЦ
-      if (cardDescLower.includes('рц тамбовская') || cardTitleLower.includes('рц тамбовская')) {
+      // Проверка на конкретные целевые РЦ
+      if (cardDescLower.includes('тамбовская') || cardTitleLower.includes('тамбовская')) {
         return assetTitleLower.includes('тамбовская');
       }
-      if (cardDescLower.includes('рц агротерминал') || cardTitleLower.includes('рц агротерминал')) {
+      if (cardDescLower.includes('агротерминал') || cardTitleLower.includes('агротерминал')) {
         return assetTitleLower.includes('агротерминал');
       }
-      if (cardDescLower.includes('рц пограничников') || cardTitleLower.includes('рц пограничников')) {
+      if (cardDescLower.includes('пограничников') || cardTitleLower.includes('пограничников')) {
         return assetTitleLower.includes('пограничников');
       }
 
-      // Проверка на типы жилья и коммерции
-      if (cardTitleLower.includes('1-2 комнатные') || cardDescLower.includes('малогабаритные')) {
-        return assetTitleLower.includes('1-комнатная') || assetTitleLower.includes('2-комнатная') || assetTitleLower.includes('студия') || assetTitleLower.includes('комната');
+      // Жилая недвижимость по категориям комнатности/масштаба
+      if (cardTitleLower.includes('1-2 комнат') || cardDescLower.includes('малогабаритные')) {
+        return (
+          assetTitleLower.includes('1-комнатная') ||
+          assetTitleLower.includes('2-комнатная') ||
+          assetTitleLower.includes('студия') ||
+          assetTitleLower.includes('комната') ||
+          assetTitleLower.includes('кондо')
+        );
       }
-      if (cardTitleLower.includes('4-квартирные')) {
-        return assetTitleLower.includes('4-квартирный') || assetTitleLower.includes('дуплекс');
+
+      if (cardTitleLower.includes('4-квартирн') || cardTitleLower.includes('4-plex')) {
+        return assetTitleLower.includes('4-квартирн') || assetTitleLower.includes('дуплекс') || assetTitleLower.includes('4-plex');
       }
-      if (cardTitleLower.includes('8-квартирные')) {
-        return assetTitleLower.includes('8-квартирный');
+
+      if (cardTitleLower.includes('8-квартирн') || cardTitleLower.includes('8-plex')) {
+        return assetTitleLower.includes('8-квартирн') || assetTitleLower.includes('8-plex');
       }
-      if (cardTitleLower.includes('12-24 кв')) {
-        return assetTitleLower.includes('12-квартирный') || assetTitleLower.includes('24-квартирный');
+
+      if (cardTitleLower.includes('12-24') || cardTitleLower.includes('12 и 24')) {
+        return assetTitleLower.includes('12-квартирн') || assetTitleLower.includes('24-квартирн') || assetTitleLower.includes('24-plex');
       }
-      if (cardTitleLower.includes('участк')) {
-        return assetTitleLower.includes('участок') || assetTitleLower.includes('земля');
+
+      // Земля и участки
+      if (cardTitleLower.includes('участк') || cardTitleLower.includes('земельн')) {
+        return assetTitleLower.includes('участок') || assetTitleLower.includes('земля') || assetTitleLower.includes('дача');
       }
-      if (cardTitleLower.includes('гараж') || cardTitleLower.includes('паркинг')) {
-        return assetTitleLower.includes('гараж') || assetTitleLower.includes('парковочное');
+
+      // Гаражи и паркинги
+      if (cardTitleLower.includes('гараж') || cardTitleLower.includes('паркинг') || cardTitleLower.includes('машиномест')) {
+        return (
+          assetTitleLower.includes('гараж') ||
+          assetTitleLower.includes('паркинг') ||
+          assetTitleLower.includes('машиноместо') ||
+          assetTitleLower.includes('кладов')
+        );
       }
-      if (cardTitleLower.includes('торговые центры')) {
-        return assetTitleLower.includes('торговый центр');
+
+      // Коммерческая недвижимость
+      if (cardTitleLower.includes('торгов') || cardTitleLower.includes('тц')) {
+        return assetTitleLower.includes('торгов') || assetTitleLower.includes('тц');
       }
-      if (cardTitleLower.includes('бизнес-центры')) {
-        return assetTitleLower.includes('бизнес-центр');
+
+      if (cardTitleLower.includes('бизнес-центр') || cardTitleLower.includes('офисн')) {
+        return assetTitleLower.includes('бизнес-центр') || assetTitleLower.includes('офисн');
       }
-      if (cardTitleLower.includes('пансионат') || cardTitleLower.includes('отел')) {
-        return assetTitleLower.includes('отель') || assetTitleLower.includes('пансионат');
+
+      if (cardTitleLower.includes('пансионат') || cardTitleLower.includes('отел') || cardTitleLower.includes('гостиниц')) {
+        return assetTitleLower.includes('отель') || assetTitleLower.includes('пансионат') || assetTitleLower.includes('мотель');
       }
 
       if (cardSubtype) {
         return assetTitleLower.includes(cardSubtype.toLowerCase());
       }
+
       return true;
     }
 
@@ -159,7 +214,7 @@ export const MarketModal: FC<MarketModalProps> = ({
                 </div>
                 <button
                   onClick={() => onExecuteSplit(cardSymbol, card.splitRatio || 2)}
-                  className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black py-2.5 rounded-xl text-xs transition cursor-pointer shadow-lg shadow-emerald-500/20"
+                  className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black py-2.5 rounded-xl text-xs transition cursor-pointer shadow-lg shadow-emerald-500/20 active:scale-95"
                 >
                   ПРИМЕНИТЬ СПЛИТ АКЦИЙ ➔
                 </button>
@@ -223,7 +278,7 @@ export const MarketModal: FC<MarketModalProps> = ({
 
                           <button
                             onClick={() => onSellAsset(asset, offerPrice)}
-                            className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black px-3 py-1.5 rounded-xl text-xs transition cursor-pointer shadow-md shadow-emerald-500/20"
+                            className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black px-3 py-1.5 rounded-xl text-xs transition cursor-pointer shadow-md shadow-emerald-500/20 active:scale-95"
                           >
                             ПРОДАТЬ
                           </button>
