@@ -7,12 +7,12 @@ export interface Dream {
 }
 
 export const DREAMS_LIST: Dream[] = [
-  { id: 'dream_island', title: 'Остров на Багамах', cost: 250000, icon: '🏝️', description: 'Собственный тропический рай для семьи и отдыха' },
-  { id: 'dream_jet', title: 'Личный бизнес-джет', cost: 350000, icon: '✈️', description: 'Свобода путешествий по всему миру без пересадок' },
-  { id: 'dream_yacht', title: 'Океанская супер-яхта', cost: 300000, icon: '🛥️', description: 'Кругосветные круизы по лазурным побережьям' },
-  { id: 'dream_castle', title: 'Исторический замок', cost: 200000, icon: '🏰', description: 'Семейная резиденция в предгорьях Альп' },
-  { id: 'dream_charity', title: 'Благотворительный фонд', cost: 150000, icon: '🏛️', description: 'Финансирование школ и медицинских программ' },
-  { id: 'dream_safari', title: 'Вилла и сафари-парк', cost: 180000, icon: '🦁', description: 'Заповедник дикой природы в Африке' }
+  { id: 'dream_island', title: 'Остров на Багамах', cost: 1500000, icon: '🏝️', description: 'Собственный тропический рай для семьи и отдыха' },
+  { id: 'dream_jet', title: 'Личный бизнес-джет', cost: 2100000, icon: '✈️', description: 'Свобода путешествий по всему миру без пересадок' },
+  { id: 'dream_yacht', title: 'Океанская супер-яхта', cost: 1900000, icon: '🛥️', description: 'Кругосветные круизы по лазурным побережьям' },
+  { id: 'dream_castle', title: 'Исторический замок', cost: 2000000, icon: '🏰', description: 'Семейная резиденция в предгорьях Альп' },
+  { id: 'dream_charity', title: 'Благотворительный фонд', cost: 1500000, icon: '🏛️', description: 'Финансирование школ и медицинских программ' },
+  { id: 'dream_safari', title: 'Вилла и сафари-парк', cost: 1800000, icon: '🦁', description: 'Заповедник дикой природы в Африке' }
 ];
 
 export interface Profession {

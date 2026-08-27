@@ -637,7 +637,7 @@ export const GameScreen: FC<GameScreenProps> = ({
     });
 
     const flowGain = updatedFastCashflow - (player.fastTrackInitialCashflow || 0);
-    if (flowGain >= 50000) {
+    if (flowGain >= 500000) {
       triggerVictory(`Увеличил Fast Track поток на +$${flowGain.toLocaleString()}!`);
     }
 

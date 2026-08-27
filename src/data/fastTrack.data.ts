@@ -49,7 +49,7 @@ export const FAST_TRACK_TILES: FastTrackTile[] = [
     color: '#f59e0b',
     dreamId: 'dream_island',
     description: 'Сектор Мечты: Собственный тропический рай для семьи и отдыха.',
-    cost: 250000
+    cost: 1500000
   },
   {
     id: 3,
@@ -91,7 +91,7 @@ export const FAST_TRACK_TILES: FastTrackTile[] = [
     color: '#f59e0b',
     dreamId: 'dream_jet',
     description: 'Сектор Мечты: Свобода путешествий по всему миру без пересадок.',
-    cost: 350000
+    cost: 2100000
   },
   {
     id: 7,
@@ -141,7 +141,7 @@ export const FAST_TRACK_TILES: FastTrackTile[] = [
     color: '#f59e0b',
     dreamId: 'dream_yacht',
     description: 'Сектор Мечты: Кругосветные круизы по лазурным побережьям.',
-    cost: 300000
+    cost: 1900000
   },
   {
     id: 12,
@@ -191,7 +191,7 @@ export const FAST_TRACK_TILES: FastTrackTile[] = [
     color: '#f59e0b',
     dreamId: 'dream_castle',
     description: 'Сектор Мечты: Семейная резиденция в предгорьях Альп.',
-    cost: 200000
+    cost: 2000000
   },
   {
     id: 17,
@@ -233,7 +233,7 @@ export const FAST_TRACK_TILES: FastTrackTile[] = [
     color: '#f59e0b',
     dreamId: 'dream_charity',
     description: 'Сектор Мечты: Финансирование школ и медицинских программ.',
-    cost: 150000
+    cost: 1500000
   },
   {
     id: 21,
@@ -270,7 +270,7 @@ export const FAST_TRACK_TILES: FastTrackTile[] = [
     color: '#f59e0b',
     dreamId: 'dream_safari',
     description: 'Сектор Мечты: Заповедник дикой природы в Африке.',
-    cost: 180000
+    cost: 1800000
   },
 
   // 25 - 29
