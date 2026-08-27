@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import type { FC } from 'react';
 import { BOARD_TILES, BoardTile } from '../data/board.data';
 import { FAST_TRACK_TILES, FastTrackTile } from '../data/fastTrack.data';
@@ -29,17 +28,6 @@ export const GameBoard: FC<GameBoardProps> = ({
   const INNER_R = 145;
   const OUTER_R = 255;
 
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const checkIsMobile = () => {
-      setIsMobile(window.innerWidth < 1024);
-    };
-    checkIsMobile();
-    window.addEventListener('resize', checkIsMobile);
-    return () => window.removeEventListener('resize', checkIsMobile);
-  }, []);
-
   const safePlayers = Array.isArray(players)
     ? players.filter(Boolean).map((p) => ({
         ...p,
@@ -64,7 +52,6 @@ export const GameBoard: FC<GameBoardProps> = ({
   const currentTileTitle = activePlayer.isOnFastTrack ? currentFastTile.title : currentRatTile.title;
   const currentTilePosition = activePlayer.isOnFastTrack ? activePlayer.fastTrackPosition : activePlayer.position;
 
-  // Секторы для круглого малого круга
   const getSectorPath = (index: number) => {
     const angleStep = (2 * Math.PI) / TOTAL_TILES;
     const startAngle = index * angleStep - Math.PI / 2;
@@ -113,7 +100,6 @@ export const GameBoard: FC<GameBoardProps> = ({
     }
   };
 
-  // Координаты для 30 ячеек внешнего прямоугольного кольца Fast Track
   const getFastTrackRect = (index: number) => {
     const W = 110;
     const H = 64;
@@ -122,30 +108,24 @@ export const GameBoard: FC<GameBoardProps> = ({
     const TOP_Y = 25;
     const BOTTOM_Y = 660;
 
-    // Верхний ряд: 0 -> 9 (слева направо)
     if (index >= 0 && index <= 9) {
       const x = LEFT_X + index * 115.5;
       return { x, y: TOP_Y, w: 112, h: H, center: { x: x + 56, y: TOP_Y + 32 } };
     }
-    // Правый ряд: 10 -> 14 (сверху вниз)
     if (index >= 10 && index <= 14) {
       const sub = index - 9;
       const y = TOP_Y + sub * 105.8;
       return { x: RIGHT_X, y, w: W, h: 102, center: { x: RIGHT_X + 55, y: y + 51 } };
     }
-    // Нижний ряд: 15 -> 24 (справа налево)
     if (index >= 15 && index <= 24) {
       const sub = index - 15;
       const x = RIGHT_X - sub * 115.5;
       return { x, y: BOTTOM_Y, w: 112, h: H, center: { x: x + 56, y: BOTTOM_Y + 32 } };
     }
-    // Левый ряд: 25 -> 29 (снизу вверх)
     const sub = index - 24;
     const y = BOTTOM_Y - sub * 105.8;
     return { x: LEFT_X, y, w: W, h: 102, center: { x: LEFT_X + 55, y: y + 51 } };
   };
-
-  const viewBoxValue = isMobile ? '290 65 620 620' : '0 0 1200 750';
 
   return (
     <div className="bg-[#1c082e]/90 border border-purple-900/50 rounded-2xl p-1.5 sm:p-3 flex flex-col justify-between shadow-2xl w-full h-full overflow-hidden select-none">
@@ -182,10 +162,10 @@ export const GameBoard: FC<GameBoardProps> = ({
         </div>
       </div>
 
-      {/* Основной SVG Canvas */}
+      {/* Единый SVG Canvas для ПК и мобильных */}
       <div className="relative w-full flex-1 flex items-center justify-center min-h-0 overflow-hidden py-1">
         <svg
-          viewBox={viewBoxValue}
+          viewBox="0 0 1200 750"
           preserveAspectRatio="xMidYMid meet"
           className="w-full h-full max-h-full select-none"
         >
@@ -202,59 +182,58 @@ export const GameBoard: FC<GameBoardProps> = ({
           />
 
           {/* ВНЕШНИЙ ТРЕК: FAST TRACK (30 ЯЧЕЕК) */}
-          {!isMobile &&
-            FAST_TRACK_TILES.map((tile) => {
-              const r = getFastTrackRect(tile.id);
-              const isTargeted = activePlayer.isOnFastTrack && activePlayer.fastTrackPosition === tile.id;
+          {FAST_TRACK_TILES.map((tile) => {
+            const r = getFastTrackRect(tile.id);
+            const isTargeted = activePlayer.isOnFastTrack && activePlayer.fastTrackPosition === tile.id;
 
-              return (
-                <g key={`ft_${tile.id}`}>
-                  <rect
-                    x={r.x}
-                    y={r.y}
-                    width={r.w}
-                    height={r.h}
-                    rx="10"
-                    fill={getFastTrackTileFill(tile)}
-                    stroke={isTargeted ? (activePlayer.color?.hex || '#f59e0b') : tile.color}
-                    strokeWidth={isTargeted ? '3.5' : '1.5'}
-                  />
+            return (
+              <g key={`ft_${tile.id}`}>
+                <rect
+                  x={r.x}
+                  y={r.y}
+                  width={r.w}
+                  height={r.h}
+                  rx="10"
+                  fill={getFastTrackTileFill(tile)}
+                  stroke={isTargeted ? (activePlayer.color?.hex || '#f59e0b') : tile.color}
+                  strokeWidth={isTargeted ? '3.5' : '1.5'}
+                />
 
-                  <text
-                    x={r.center.x}
-                    y={r.center.y - 8}
-                    textAnchor="middle"
-                    fontSize="13"
-                  >
-                    {tile.icon}
-                  </text>
+                <text
+                  x={r.center.x}
+                  y={r.center.y - 8}
+                  textAnchor="middle"
+                  fontSize="13"
+                >
+                  {tile.icon}
+                </text>
 
-                  <text
-                    x={r.center.x}
-                    y={r.center.y + 7}
-                    textAnchor="middle"
-                    fill="#f8fafc"
-                    fontSize="7.5"
-                    fontWeight="800"
-                    fontFamily="sans-serif"
-                  >
-                    {tile.title.length > 15 ? `${tile.title.slice(0, 14)}...` : tile.title}
-                  </text>
+                <text
+                  x={r.center.x}
+                  y={r.center.y + 7}
+                  textAnchor="middle"
+                  fill="#f8fafc"
+                  fontSize="7.5"
+                  fontWeight="800"
+                  fontFamily="sans-serif"
+                >
+                  {tile.title.length > 15 ? `${tile.title.slice(0, 14)}...` : tile.title}
+                </text>
 
-                  <text
-                    x={r.center.x}
-                    y={r.center.y + 17}
-                    textAnchor="middle"
-                    fill="#94a3b8"
-                    fontSize="6"
-                    fontWeight="bold"
-                    fontFamily="monospace"
-                  >
-                    {tile.cost ? `$${tile.cost.toLocaleString()}` : `#${tile.id}`}
-                  </text>
-                </g>
-              );
-            })}
+                <text
+                  x={r.center.x}
+                  y={r.center.y + 17}
+                  textAnchor="middle"
+                  fill="#94a3b8"
+                  fontSize="6"
+                  fontWeight="bold"
+                  fontFamily="monospace"
+                >
+                  {tile.cost ? `$${tile.cost.toLocaleString()}` : `#${tile.id}`}
+                </text>
+              </g>
+            );
+          })}
 
           {/* ВНУТРЕННИЙ КРУГ: МАЛЫЙ КРУГ «КРЫСИНЫЕ БЕГА» */}
           <circle cx={CENTER_X} cy={CENTER_Y} r={OUTER_R + 5} fill="#230640" stroke="#eab308" strokeWidth="3" />
@@ -401,60 +380,59 @@ export const GameBoard: FC<GameBoardProps> = ({
           })}
 
           {/* ФИШКИ ИГРОКОВ: FAST TRACK */}
-          {!isMobile &&
-            FAST_TRACK_TILES.map((tile) => {
-              const playersOnTile = safePlayers.filter(
-                (p) => p.isOnFastTrack && (p.fastTrackPosition ?? 0) === tile.id
-              );
-              if (playersOnTile.length === 0) return null;
+          {FAST_TRACK_TILES.map((tile) => {
+            const playersOnTile = safePlayers.filter(
+              (p) => p.isOnFastTrack && (p.fastTrackPosition ?? 0) === tile.id
+            );
+            if (playersOnTile.length === 0) return null;
 
-              const r = getFastTrackRect(tile.id);
+            const r = getFastTrackRect(tile.id);
 
-              return (
-                <g key={`fast-players-tile-${tile.id}`} transform={`translate(${r.center.x}, ${r.center.y})`}>
-                  {playersOnTile.map((p, idx) => {
-                    const offsetX = ((idx % 2) - 0.5) * 16;
-                    const offsetY = Math.floor(idx / 2) * 14 - 4;
-                    const isCur = p.id === activePlayer.id;
+            return (
+              <g key={`fast-players-tile-${tile.id}`} transform={`translate(${r.center.x}, ${r.center.y})`}>
+                {playersOnTile.map((p, idx) => {
+                  const offsetX = ((idx % 2) - 0.5) * 16;
+                  const offsetY = Math.floor(idx / 2) * 14 - 4;
+                  const isCur = p.id === activePlayer.id;
 
-                    return (
-                      <g key={`ft_p_${p.id || idx}`} transform={`translate(${offsetX}, ${offsetY})`}>
-                        {isCur && (
-                          <circle
-                            cx="0"
-                            cy="0"
-                            r="11"
-                            fill="none"
-                            stroke="#f59e0b"
-                            strokeWidth="2"
-                            className="animate-ping opacity-80"
-                          />
-                        )}
+                  return (
+                    <g key={`ft_p_${p.id || idx}`} transform={`translate(${offsetX}, ${offsetY})`}>
+                      {isCur && (
                         <circle
                           cx="0"
                           cy="0"
-                          r="7.5"
-                          fill={p.color?.hex || '#38bdf8'}
-                          stroke="#ffffff"
-                          strokeWidth="1.5"
+                          r="11"
+                          fill="none"
+                          stroke="#f59e0b"
+                          strokeWidth="2"
+                          className="animate-ping opacity-80"
                         />
-                        <text
-                          x="0"
-                          y="2.5"
-                          textAnchor="middle"
-                          fill="#020617"
-                          fontSize="6.5"
-                          fontWeight="900"
-                          fontFamily="sans-serif"
-                        >
-                          {p.name ? p.name.charAt(0).toUpperCase() : 'F'}
-                        </text>
-                      </g>
-                    );
-                  })}
-                </g>
-              );
-            })}
+                      )}
+                      <circle
+                        cx="0"
+                        cy="0"
+                        r="7.5"
+                        fill={p.color?.hex || '#38bdf8'}
+                        stroke="#ffffff"
+                        strokeWidth="1.5"
+                      />
+                      <text
+                        x="0"
+                        y="2.5"
+                        textAnchor="middle"
+                        fill="#020617"
+                        fontSize="6.5"
+                        fontWeight="900"
+                        fontFamily="sans-serif"
+                      >
+                        {p.name ? p.name.charAt(0).toUpperCase() : 'F'}
+                      </text>
+                    </g>
+                  );
+                })}
+              </g>
+            );
+          })}
         </svg>
       </div>
     </div>
