@@ -4,6 +4,7 @@ import type { Player } from '../types/game.types';
 import type { RatColor } from './ProfileSetupScreen';
 import { FINANCIAL_TOOLTIPS } from '../data/tooltips.data';
 import { Tooltip } from './Tooltip';
+import { Dice3DContainer } from './Dice3D';
 
 interface FinancialStatementPanelProps {
   player: Player;
@@ -161,7 +162,7 @@ export const FinancialStatementPanel: FC<FinancialStatementPanelProps> = ({
             </p>
           </div>
           <span className="text-[10px] font-mono bg-amber-500/10 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold">
-            МАЛЫЙ КРУГ
+            {player.currentTrack === 'FAST_TRACK' ? 'FAST TRACK' : 'МАЛЫЙ КРУГ'}
           </span>
         </div>
 
@@ -233,18 +234,15 @@ export const FinancialStatementPanel: FC<FinancialStatementPanelProps> = ({
           </div>
         </div>
 
-        {/* Кнопка хода на десктопе */}
-        <div className="bg-slate-950 border border-purple-900/50 p-2.5 rounded-2xl flex items-center justify-between gap-2">
-          <div className="flex items-center space-x-2">
-            <div className="w-9 h-9 rounded-xl bg-purple-950/60 border border-purple-700 flex items-center justify-center text-lg shadow-inner">
-              {diceValue ? '🎲' : '🎯'}
-            </div>
-            <div>
-              <span className="text-[9px] uppercase font-bold text-purple-300 block">Бросок</span>
-              <span className="text-sm font-black font-mono text-amber-400">
-                {isRolling ? '...' : diceValue ? `${diceValue}` : '-'}
+        {/* Кнопка хода на десктопе с 3D-кубиком */}
+        <div className="bg-slate-950/90 border border-purple-900/60 p-2.5 rounded-2xl flex items-center justify-between gap-3">
+          <div className="flex items-center space-x-3">
+            <Dice3DContainer value={diceValue} isRolling={isRolling} size={38} />
+            {diceValue && !isRolling && (
+              <span className="font-mono font-black text-amber-400 text-lg">
+                ={diceValue}
               </span>
-            </div>
+            )}
           </div>
 
           <div className="flex items-center space-x-2">
@@ -252,14 +250,15 @@ export const FinancialStatementPanel: FC<FinancialStatementPanelProps> = ({
               <button
                 onClick={onRollDice}
                 disabled={!isMyTurn || isRolling}
-                className="bg-amber-400 hover:bg-amber-300 active:scale-95 disabled:bg-slate-800 disabled:text-slate-600 transition text-slate-950 font-black px-4 py-2 rounded-xl text-xs shadow-lg shadow-amber-500/20 cursor-pointer"
+                className="bg-amber-400 hover:bg-amber-300 active:scale-95 disabled:bg-slate-800 disabled:text-slate-600 transition text-slate-950 font-black px-4 py-2.5 rounded-xl text-xs shadow-lg shadow-amber-500/20 cursor-pointer uppercase tracking-wider"
               >
-                {isRolling ? 'Бросаем...' : isMyTurn ? 'БРОСИТЬ КУБИК ➔' : 'Ход соперника...'}
+                {isRolling ? 'КРУТИМ... 🎲' : isMyTurn ? 'БРОСИТЬ КУБИК ➔' : 'Ход соперника...'}
               </button>
             ) : (
               <button
                 onClick={onEndTurn}
-                className="bg-purple-600 hover:bg-purple-500 active:scale-95 transition text-white font-black px-4 py-2 rounded-xl text-xs shadow-lg shadow-purple-600/30 cursor-pointer"
+                disabled={!isMyTurn}
+                className="bg-purple-600 hover:bg-purple-500 active:scale-95 disabled:bg-slate-800 disabled:text-slate-600 transition text-white font-black px-4 py-2.5 rounded-xl text-xs shadow-lg shadow-purple-600/30 cursor-pointer uppercase tracking-wider"
               >
                 ЗАВЕРШИТЬ ХОД ➔
               </button>
@@ -290,26 +289,23 @@ export const FinancialStatementPanel: FC<FinancialStatementPanelProps> = ({
             <span className="text-slate-400 text-xs px-1">▲</span>
           </button>
 
-          {/* Индикатор кубика и кнопка действия */}
-          <div className="flex items-center space-x-1.5">
-            {diceValue && (
-              <div className="w-8 h-8 rounded-lg bg-purple-950 border border-purple-700 flex items-center justify-center font-mono font-black text-amber-300 text-sm">
-                {diceValue}
-              </div>
-            )}
+          {/* Индикатор 3D-кубика и кнопка действия */}
+          <div className="flex items-center space-x-2">
+            <Dice3DContainer value={diceValue} isRolling={isRolling} size={32} />
 
             {!hasRolledThisTurn ? (
               <button
                 onClick={onRollDice}
                 disabled={!isMyTurn || isRolling}
-                className="bg-amber-400 hover:bg-amber-300 active:scale-95 disabled:bg-slate-800 disabled:text-slate-600 transition text-slate-950 font-black px-3.5 py-2.5 rounded-xl text-xs shadow-lg cursor-pointer"
+                className="bg-amber-400 hover:bg-amber-300 active:scale-95 disabled:bg-slate-800 disabled:text-slate-600 transition text-slate-950 font-black px-3.5 py-2.5 rounded-xl text-xs shadow-lg cursor-pointer uppercase tracking-wider"
               >
-                {isRolling ? '...' : isMyTurn ? '🎲 КУБИК' : 'Ждем...'}
+                {isRolling ? '...' : isMyTurn ? 'БРОСОК' : 'Ждем...'}
               </button>
             ) : (
               <button
                 onClick={onEndTurn}
-                className="bg-purple-600 hover:bg-purple-500 active:scale-95 transition text-white font-black px-3.5 py-2.5 rounded-xl text-xs shadow-lg cursor-pointer"
+                disabled={!isMyTurn}
+                className="bg-purple-600 hover:bg-purple-500 active:scale-95 disabled:bg-slate-800 disabled:text-slate-600 transition text-white font-black px-3.5 py-2.5 rounded-xl text-xs shadow-lg cursor-pointer uppercase tracking-wider"
               >
                 КОНЕЦ ➔
               </button>
