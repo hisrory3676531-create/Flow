@@ -1096,7 +1096,48 @@ export const GameScreen: FC<GameScreenProps> = ({
           onClose={() => setShowBankModal(false)}
         />
       )}
+{/* ЧИТ-КНОПКА ДЛЯ ТЕСТА FAST TRACK */}
+          <button
+            onClick={() => {
+              const hugePassive = (player.financials?.totalExpenses || 1500) + 15000;
+              const updatedFin = {
+                ...player.financials,
+                passiveIncome: hugePassive,
+                totalIncome: player.financials.salary + hugePassive,
+                monthlyCashflow: player.financials.salary + hugePassive - player.financials.totalExpenses
+              };
 
+              setPlayer((prev) => ({
+                ...prev,
+                financials: updatedFin
+              }));
+
+              socket.emit('player_update_financials', {
+                roomId,
+                updatedPlayer: {
+                  userId: player.userId,
+                  financials: updatedFin
+                },
+                logMessage: `⚡ [ЧИТ] ${player.name} получил пассивный доход $${hugePassive.toLocaleString()}`
+              });
+
+              setShowFastTrackTransition(true);
+            }}
+            className="bg-amber-500/30 border border-amber-400 hover:bg-amber-500/50 text-amber-300 font-black px-2 py-0.5 rounded-lg text-[10px] transition cursor-pointer flex items-center space-x-1 animate-pulse"
+          >
+            <span>⚡</span>
+            <span>Fast Track Чит</span>
+          </button>
+
+          {!isOnFastTrack && (
+            <button
+              onClick={() => setShowBankModal(true)}
+              className="bg-emerald-500/20 border border-emerald-500/40 hover:bg-emerald-500/30 text-emerald-400 font-bold px-2 py-0.5 rounded-lg text-[10px] transition cursor-pointer flex items-center space-x-1"
+            >
+              <span>🏦</span>
+              <span>Банк</span>
+            </button>
+          )}
       {isMyTurn && showBabyModal && (
         <BabyModal
           childCount={player.financials.childCount}
