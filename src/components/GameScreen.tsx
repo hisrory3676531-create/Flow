@@ -956,7 +956,7 @@ export const GameScreen: FC<GameScreenProps> = ({
       </header>
 
       <main className="flex-1 flex flex-col lg:grid lg:grid-cols-12 gap-2 p-1.5 sm:p-3 w-full overflow-hidden relative">
-        <section className="flex-1 lg:col-span-8 xl:col-span-9 flex items-center justify-center min-h-0 pb-16 lg:pb-0">
+        <section className="flex-1 lg:col-span-8 xl:col-span-9 flex items-center justify-center min-h-0 w-full h-full pb-14 lg:pb-0">
           <GameBoard
             players={roomPlayers}
             activePlayerId={activeCurrentPlayer?.id}
