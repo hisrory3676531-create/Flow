@@ -18,6 +18,7 @@ import { BankruptcyModal } from './BankruptcyModal';
 import { SpectatorCardModal } from './SpectatorCardModal';
 import { FastTrackTransitionModal } from './FastTrackTransitionModal';
 import { FastTrackDealModal } from './FastTrackDealModal';
+import { FastTrackEventModal } from './FastTrackEventModal';
 import { DealCard, DoodadCard, MarketCard, DOODADS, MARKET_CARDS } from '../data/cards.data';
 import { socket } from '../services/socket';
 import { soundManager } from '../services/sound.service';
@@ -81,6 +82,7 @@ export const GameScreen: FC<GameScreenProps> = ({
     `[Режим ЗП] ${settings?.autoPayday ? 'Автоматическое начисление' : 'Ручное получение (кнопка)'}`
   ]);
 
+  // Модальные окна Малого круга
   const [activeDealModal, setActiveDealModal] = useState<boolean>(false);
   const [activeDoodadCard, setActiveDoodadCard] = useState<DoodadCard | null>(null);
   const [activeMarketCard, setActiveMarketCard] = useState<MarketCard | null>(null);
@@ -90,8 +92,10 @@ export const GameScreen: FC<GameScreenProps> = ({
   const [showVictoryModal, setShowVictoryModal] = useState<boolean>(false);
   const [showBabyModal, setShowBabyModal] = useState<boolean>(false);
 
+  // Модальные окна Fast Track
   const [showFastTrackTransition, setShowFastTrackTransition] = useState<boolean>(false);
   const [activeFastTrackDeal, setActiveFastTrackDeal] = useState<FastTrackTile | null>(null);
+  const [activeFastTrackEvent, setActiveFastTrackEvent] = useState<FastTrackTile | null>(null);
 
   const activeCurrentPlayer = roomPlayers[currentTurnIndex] || roomPlayers[0];
   const isMyTurn = activeCurrentPlayer?.id === player.id;
@@ -114,6 +118,7 @@ export const GameScreen: FC<GameScreenProps> = ({
     setShowDownturnModal(false);
     setShowBabyModal(false);
     setActiveFastTrackDeal(null);
+    setActiveFastTrackEvent(null);
     setHasRolledThisTurn(false);
     setDiceValue(null);
     setPendingPayday(0);
@@ -184,7 +189,7 @@ export const GameScreen: FC<GameScreenProps> = ({
       setTradeWaitingMessage('');
     });
 
-socket.on('sync_game_state', (roomData) => {
+    socket.on('sync_game_state', (roomData) => {
       if (roomData.players) {
         setRoomPlayers(
           roomData.players.map((p: any) => {
@@ -413,63 +418,31 @@ socket.on('sync_game_state', (roomData) => {
           setActiveFastTrackDeal(currentTile);
           openedCardData = currentTile;
         } else if (currentTile.type === 'DREAM') {
-          if (player.dream && (currentTile.dreamId === player.dream.id || currentTile.title === player.dream.title)) {
-            if (player.cash >= (currentTile.cost || 0)) {
-              soundManager.playVictory();
-              setShowVictoryModal(true);
-              addLog(`🏆 АБСОЛЮТНАЯ ПОБЕДА! ${player.name} выкупил свою Мечту «${currentTile.title}»!`);
-            } else {
-              addLog(`🌟 Сектор вашей Мечты! Нужно $${currentTile.cost?.toLocaleString()}, у вас $${player.cash.toLocaleString()}`);
-            }
-          } else {
-            addLog(`📍 Сектор чужой мечты: «${currentTile.title}».`);
-          }
+          setActiveFastTrackEvent(currentTile);
+          openedCardData = {
+            ...currentTile,
+            description: currentTile.dreamId === player.dream?.id ? 'Сектор личной мечты игрока!' : 'Сектор чужой мечты.'
+          };
         } else if (currentTile.type === 'TAX_AUDIT') {
-          soundManager.playExpenseSound();
-          const taxAmt = Math.round(player.cash * 0.2);
-          const newCash = Math.max(0, player.cash - taxAmt);
-          setPlayer((prev) => ({ ...prev, cash: newCash }));
-          addLog(`⚖️ Налоговый аудит! Списано 20% наличных: -$${taxAmt.toLocaleString()}`);
-
-          socket.emit('player_update_financials', {
-            roomId,
-            updatedPlayer: {
-              userId: player.userId,
-              cash: newCash
-            },
-            logMessage: `⚖️ ${player.name} оплатил налоговый аудит: -$${taxAmt.toLocaleString()}`
-          });
+          setActiveFastTrackEvent(currentTile);
+          openedCardData = {
+            ...currentTile,
+            description: 'Налоговый аудит: списание 20% от наличных средств.'
+          };
         } else if (currentTile.type === 'LAWSUIT') {
-          soundManager.playExpenseSound();
-          const lawsuitCost = 50000;
-          const newCash = Math.max(0, player.cash - lawsuitCost);
-          setPlayer((prev) => ({ ...prev, cash: newCash }));
-          addLog(`🏛️ Судебный иск! Штраф: -$${lawsuitCost.toLocaleString()}`);
-
-          socket.emit('player_update_financials', {
-            roomId,
-            updatedPlayer: {
-              userId: player.userId,
-              cash: newCash
-            },
-            logMessage: `🏛️ ${player.name} выплатил судебный иск: -$${lawsuitCost.toLocaleString()}`
-          });
+          setActiveFastTrackEvent(currentTile);
+          openedCardData = {
+            ...currentTile,
+            description: 'Судебный иск против бизнеса. Штраф: $50,000.'
+          };
         } else if (currentTile.type === 'DONATION') {
-          soundManager.playCoinSound();
-          const donationAmt = 50000;
-          const newCash = Math.max(0, player.cash - donationAmt);
-          setPlayer((prev) => ({ ...prev, cash: newCash }));
-          setCharityTurnsLeft(3);
-          addLog(`🤝 Фонд Fast Track: пожертвование $50,000 дает бросок 3 кубиков на 3 хода.`);
-
-          socket.emit('player_update_financials', {
-            roomId,
-            updatedPlayer: {
-              userId: player.userId,
-              cash: newCash
-            },
-            logMessage: `🤝 ${player.name} пожертвовал в фонд $50,000!`
-          });
+          setActiveFastTrackEvent(currentTile);
+          openedCardData = {
+            ...currentTile,
+            description: 'Пожертвование $50,000 дает право бросать 3 кубика на 3 хода.'
+          };
+        } else if (currentTile.type === 'PAYDAY') {
+          setTimeout(handleEndTurn, 1000);
         }
 
         socket.emit('player_roll_dice', {
@@ -1072,6 +1045,7 @@ socket.on('sync_game_state', (roomData) => {
         )}
       </main>
 
+      {/* Модальное окно перехода на Скоростную дорожку */}
       {showFastTrackTransition && (
         <FastTrackTransitionModal
           player={player}
@@ -1079,12 +1053,63 @@ socket.on('sync_game_state', (roomData) => {
         />
       )}
 
+      {/* Модальное окно покупки бизнеса на Fast Track */}
       {isMyTurn && activeFastTrackDeal && (
         <FastTrackDealModal
           tile={activeFastTrackDeal}
           playerCash={player.cash}
           onBuy={handleBuyFastTrackDeal}
           onPass={finishTurnAction}
+        />
+      )}
+
+      {/* Модальное окно событий Fast Track (Мечта, Налоги, Иск, Фонд) */}
+      {isMyTurn && activeFastTrackEvent && (
+        <FastTrackEventModal
+          tile={activeFastTrackEvent}
+          playerCash={player.cash}
+          isMyDream={player.dream && (activeFastTrackEvent.dreamId === player.dream.id || activeFastTrackEvent.title === player.dream.title)}
+          onBuyDream={() => {
+            soundManager.playVictory();
+            setShowVictoryModal(true);
+            setActiveFastTrackEvent(null);
+            addLog(`🏆 АБСОЛЮТНАЯ ПОБЕДА! ${player.name} выкупил свою Мечту «${activeFastTrackEvent.title}»!`);
+          }}
+          onConfirm={() => {
+            if (activeFastTrackEvent.type === 'TAX_AUDIT') {
+              soundManager.playExpenseSound();
+              const taxAmt = Math.round(player.cash * 0.2);
+              const newCash = Math.max(0, player.cash - taxAmt);
+              setPlayer((prev) => ({ ...prev, cash: newCash }));
+              socket.emit('player_update_financials', {
+                roomId,
+                updatedPlayer: { userId: player.userId, cash: newCash },
+                logMessage: `⚖️ ${player.name} оплатил налоговый аудит: -$${taxAmt.toLocaleString()}`
+              });
+            } else if (activeFastTrackEvent.type === 'LAWSUIT') {
+              soundManager.playExpenseSound();
+              const lawsuitCost = 50000;
+              const newCash = Math.max(0, player.cash - lawsuitCost);
+              setPlayer((prev) => ({ ...prev, cash: newCash }));
+              socket.emit('player_update_financials', {
+                roomId,
+                updatedPlayer: { userId: player.userId, cash: newCash },
+                logMessage: `🏛️ ${player.name} выплатил судебный иск: -$${lawsuitCost.toLocaleString()}`
+              });
+            } else if (activeFastTrackEvent.type === 'DONATION') {
+              soundManager.playCoinSound();
+              const donationAmt = 50000;
+              const newCash = Math.max(0, player.cash - donationAmt);
+              setPlayer((prev) => ({ ...prev, cash: newCash }));
+              setCharityTurnsLeft(3);
+              socket.emit('player_update_financials', {
+                roomId,
+                updatedPlayer: { userId: player.userId, cash: newCash },
+                logMessage: `🤝 ${player.name} пожертвовал в фонд $50,000!`
+              });
+            }
+            finishTurnAction();
+          }}
         />
       )}
 
@@ -1102,6 +1127,7 @@ socket.on('sync_game_state', (roomData) => {
         />
       )}
 
+      {/* Синхронное отображение открытой карточки для наблюдателей */}
       {!isMyTurn && networkActiveCard && (
         <SpectatorCardModal cardData={networkActiveCard} />
       )}
@@ -1202,6 +1228,7 @@ socket.on('sync_game_state', (roomData) => {
         </div>
       )}
 
+      {/* Dev Cheats панель */}
       <div className="fixed top-12 right-2 z-50 flex flex-col gap-1 bg-slate-950/90 border border-amber-400/60 p-1.5 rounded-xl shadow-2xl backdrop-blur-md">
         <span className="text-[8px] font-black text-amber-400 uppercase text-center tracking-wider">
           🛠️ Dev Cheats
