@@ -281,7 +281,6 @@ export const GameScreen: FC<GameScreenProps> = ({
         setShowBabyModal(true);
         openedCardData = { title: 'Рождение ребенка', description: 'У игрока пополнение в семье!' };
       } else if (currentTile.type === 'PAYDAY') {
-        // Если приземлился точно на Payday без модалки — ход переходит через 1.2 сек
         setTimeout(() => {
           handleEndTurn();
         }, 1200);
@@ -618,56 +617,61 @@ export const GameScreen: FC<GameScreenProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-[#130620] text-slate-100 flex flex-col">
+    <div className="h-[100dvh] bg-[#130620] text-slate-100 flex flex-col overflow-hidden select-none">
       {/* Баннер оповещения о смене активного игрока */}
       <TurnNotification
         playerName={activeCurrentPlayer?.name || ''}
         isMyTurn={isMyTurn}
       />
 
-      <header className="bg-[#1f0a33] border-b border-purple-900/50 px-6 py-2.5 flex items-center justify-between shadow-lg">
-        <div className="flex items-center space-x-3">
-          <div className="w-7 h-7 rounded-lg bg-amber-400 flex items-center justify-center font-black text-slate-950 text-base">
+      {/* Компактный однострочный хедер */}
+      <header className="bg-[#1f0a33] border-b border-purple-900/50 px-2.5 sm:px-6 py-1.5 flex items-center justify-between shadow-lg shrink-0">
+        <div className="flex items-center space-x-1.5">
+          <div className="w-5 h-5 rounded bg-amber-400 flex items-center justify-center font-black text-slate-950 text-[10px]">
             $
           </div>
-          <h1 className="text-base font-extrabold tracking-wide text-amber-300">CASHFLOW ONLINE</h1>
-          <span className="text-[10px] font-mono bg-purple-950 border border-purple-700/60 px-2 py-0.5 rounded-lg text-purple-300">
+          <span className="text-[10px] font-mono bg-purple-950 border border-purple-700/60 px-1.5 py-0.5 rounded text-purple-300">
             #{roomId}
           </span>
         </div>
 
-        <div className="flex items-center space-x-3">
-          <div className="text-xs font-bold px-3 py-1 rounded-xl bg-slate-900 border border-slate-700 flex items-center space-x-2">
-            <span className="text-slate-400">Сейчас ходит:</span>
-            <span className="font-mono text-amber-400">{activeCurrentPlayer?.name || 'Ожидание...'}</span>
+        <div className="flex items-center space-x-1.5">
+          <div className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-slate-900 border border-slate-700 flex items-center space-x-1">
+            <span className="text-slate-400">Ходит:</span>
+            <span className="font-mono text-amber-400 truncate max-w-[65px] sm:max-w-none">
+              {activeCurrentPlayer?.name || '...'}
+            </span>
           </div>
 
           <button
             onClick={() => setShowBankModal(true)}
-            className="bg-emerald-500/20 border border-emerald-500/40 hover:bg-emerald-500/30 text-emerald-400 font-bold px-3 py-1 rounded-xl text-xs transition cursor-pointer flex items-center space-x-1"
+            className="bg-emerald-500/20 border border-emerald-500/40 hover:bg-emerald-500/30 text-emerald-400 font-bold px-2 py-0.5 rounded-lg text-[10px] transition cursor-pointer flex items-center space-x-1"
           >
             <span>🏦</span>
-            <span>Банк / Долги</span>
+            <span>Банк</span>
           </button>
 
           <button
             onClick={onRestart}
-            className="text-xs text-slate-400 hover:text-rose-400 transition cursor-pointer"
+            className="text-[10px] text-slate-400 hover:text-rose-400 transition cursor-pointer px-1"
           >
-            Выйти в меню
+            ✕
           </button>
         </div>
       </header>
 
-      <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 p-3 w-full items-stretch relative">
-        <section className="lg:col-span-8 xl:col-span-9 flex">
+      {/* Основная рабочая область */}
+      <main className="flex-1 flex flex-col lg:grid lg:grid-cols-12 gap-2 p-1.5 sm:p-3 w-full overflow-hidden relative">
+        {/* Секция игрового поля */}
+        <section className="flex-1 lg:col-span-8 xl:col-span-9 flex items-center justify-center min-h-0 pb-16 lg:pb-0">
           <GameBoard
             players={roomPlayers}
             activePlayerId={activeCurrentPlayer?.id}
           />
         </section>
 
-        <section className="lg:col-span-4 xl:col-span-3 flex">
+        {/* Секция финансовой панели и управления */}
+        <section className="hidden lg:flex lg:col-span-4 xl:col-span-3 h-full">
           <FinancialStatementPanel
             player={player}
             playerColor={playerColor}
@@ -681,21 +685,36 @@ export const GameScreen: FC<GameScreenProps> = ({
           />
         </section>
 
+        {/* Мобильная финансовая панель (шторка и нижняя полоса) */}
+        <div className="lg:hidden">
+          <FinancialStatementPanel
+            player={player}
+            playerColor={playerColor}
+            logs={logs}
+            diceValue={diceValue}
+            isRolling={isRolling}
+            onRollDice={handleRollDice}
+            isMyTurn={isMyTurn}
+            hasRolledThisTurn={hasRolledThisTurn}
+            onEndTurn={handleEndTurn}
+          />
+        </div>
+
         {/* Плавающая кнопка ручного получения зарплаты */}
         {pendingPayday > 0 && isMyTurn && (
-          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-40 animate-bounce">
+          <div className="absolute bottom-20 lg:bottom-8 left-1/2 -translate-x-1/2 z-40 animate-bounce">
             <button
               onClick={handleClaimManualPayday}
-              className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm px-6 py-3.5 rounded-2xl shadow-2xl border-2 border-white flex items-center space-x-2 cursor-pointer transition transform active:scale-95"
+              className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs sm:text-sm px-4 sm:px-6 py-2 sm:py-3.5 rounded-2xl shadow-2xl border-2 border-white flex items-center space-x-1.5 cursor-pointer transition transform active:scale-95"
             >
-              <span className="text-lg">💰</span>
-              <span>ЗАБРАТЬ ЗАРПЛАТУ (+{pendingPayday.toLocaleString()} $)</span>
+              <span className="text-base sm:text-lg">💰</span>
+              <span>ПОЛУЧИТЬ ЗАРПЛАТУ (+{pendingPayday.toLocaleString()} $)</span>
             </button>
           </div>
         )}
       </main>
 
-      {/* 1. КАРТОЧКА РЫНКА (ОТКРЫВАЕТСЯ ДЛЯ ВСЕХ ИГРОКОВ ОДНОВРЕМЕННО) */}
+      {/* Модальные окна */}
       {!isMarketDismissed && (activeMarketCard || (networkActiveCard && (networkActiveCard.cardType === 'Рынок' || networkActiveCard.targetType === 'SPLIT' || networkActiveCard.offerPrice || networkActiveCard.targetType === 'STOCK' || networkActiveCard.targetType === 'REAL_ESTATE'))) && (
         <MarketModal
           card={activeMarketCard || networkActiveCard}
@@ -710,12 +729,10 @@ export const GameScreen: FC<GameScreenProps> = ({
         />
       )}
 
-      {/* 2. ОКНО НАБЛЮДАТЕЛЯ ДЛЯ ОСТАЛЬНЫХ ТИПОВ КАРТОЧЕК */}
       {!isMyTurn && networkActiveCard && !networkActiveCard.offerPrice && networkActiveCard.cardType !== 'Рынок' && !networkActiveCard.targetType && (
         <SpectatorCardModal cardData={networkActiveCard} />
       )}
 
-      {/* 3. МОДАЛЬНЫЕ ОКНА ДЛЯ ХОДЯЩЕГО ИГРОКА */}
       {isMyTurn && activeDealModal && (
         <DealModal
           roomId={roomId}
@@ -796,7 +813,6 @@ export const GameScreen: FC<GameScreenProps> = ({
         />
       )}
 
-      {/* Окно подтверждения покупки сделки у покупателя */}
       {incomingTradeOffer && (
         <DealTradeIncomingModal
           tradeOffer={incomingTradeOffer}
@@ -806,9 +822,8 @@ export const GameScreen: FC<GameScreenProps> = ({
         />
       )}
 
-      {/* Индикатор ожидания для продавца */}
       {tradeWaitingMessage && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-amber-400 text-slate-950 font-black px-6 py-2.5 rounded-2xl shadow-xl animate-pulse text-xs">
+        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 bg-amber-400 text-slate-950 font-black px-4 py-2 rounded-2xl shadow-xl animate-pulse text-xs">
           ⏳ {tradeWaitingMessage}
         </div>
       )}

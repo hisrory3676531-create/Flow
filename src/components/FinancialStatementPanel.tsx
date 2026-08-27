@@ -271,7 +271,7 @@ export const FinancialStatementPanel: FC<FinancialStatementPanelProps> = ({
       {/* ========================================================================= */}
       {/* 2. МОБИЛЬНЫЙ ПЛАВАЮЩИЙ БАР И ШТОРКА (Экраны < lg)                         */}
       {/* ========================================================================= */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#170526]/95 backdrop-blur-md border-t border-purple-900/80 px-3 py-2 shadow-2xl">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#170526]/95 backdrop-blur-md border-t border-purple-900/80 px-3 pt-2 pb-5 shadow-2xl">
         <div className="flex items-center justify-between gap-2">
           {/* Кнопка открытия полной информации о балансе */}
           <button
