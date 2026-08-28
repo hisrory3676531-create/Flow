@@ -184,32 +184,6 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('sync_game_state', room);
   });
 
-  // Явный выход игрока из лобби или игры
-  socket.on('leave_room', ({ roomId, userId }) => {
-    const room = rooms.get(roomId);
-    if (!room) return;
-
-    socket.leave(roomId);
-    room.players = room.players.filter((p) => p.userId !== userId && p.socketId !== socket.id);
-
-    // Если в комнате не осталось игроков — удаляем её
-    if (room.players.length === 0) {
-      rooms.delete(roomId);
-      console.log(`[Lobby] Комната #${roomId} удалена (0 игроков)`);
-    } else {
-      // Если вышел хост — передаем права следующему игроку
-      if (room.hostId === userId) {
-        room.hostId = room.players[0].userId;
-        room.hostName = room.players[0].name;
-        room.players[0].isHost = true;
-      }
-      io.to(roomId).emit('sync_room_lobby', room);
-      io.to(roomId).emit('sync_game_state', room);
-    }
-
-    io.emit('rooms_list', getPublicRooms());
-  });
-
   socket.on('player_close_card', ({ roomId, autoEndTurn }) => {
     const room = rooms.get(roomId);
     if (!room) return;
@@ -439,31 +413,10 @@ io.on('connection', (socket) => {
     io.to(victoryPayload.roomId).emit('game_victory', victoryPayload);
   });
 
-  // Потеря связи или закрытие вкладки
   socket.on('disconnect', () => {
     for (const [roomId, room] of rooms.entries()) {
       const disconnectedPlayer = room.players.find((p) => p.socketId === socket.id);
       if (disconnectedPlayer) {
-        // Если партия еще не началась (в лобби) — удаляем сразу без ожидания
-        if (!room.gameStarted) {
-          room.players = room.players.filter((p) => p.userId !== disconnectedPlayer.userId);
-
-          if (room.players.length === 0) {
-            rooms.delete(roomId);
-            console.log(`[Lobby] Комната #${roomId} удалена (все вышли из лобби)`);
-          } else {
-            if (room.hostId === disconnectedPlayer.userId) {
-              room.hostId = room.players[0].userId;
-              room.hostName = room.players[0].name;
-              room.players[0].isHost = true;
-            }
-            io.to(roomId).emit('sync_room_lobby', room);
-          }
-          io.emit('rooms_list', getPublicRooms());
-          break;
-        }
-
-        // Если игра уже идет — даем 120 секунд на переподключение
         disconnectedPlayer.isDisconnected = true;
         room.logs.unshift(`⚠️ ${disconnectedPlayer.name} потерял связь. Ожидание 120 сек...`);
         io.to(roomId).emit('sync_game_state', room);
@@ -476,7 +429,6 @@ io.on('connection', (socket) => {
 
             if (currentRoom.players.length === 0) {
               rooms.delete(roomId);
-              console.log(`[Game] Комната #${roomId} удалена после таймаута последнего игрока`);
             } else {
               io.to(roomId).emit('sync_game_state', currentRoom);
               io.to(roomId).emit('sync_room_lobby', currentRoom);
