@@ -60,7 +60,7 @@ export const GameScreen: FC<GameScreenProps> = ({
   const [tradeWaitingMessage, setTradeWaitingMessage] = useState<string>('');
   const [isMarketDismissed, setIsMarketDismissed] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(soundManager.getMutedState());
-
+  const [showRulesModal, setShowRulesModal] = useState<boolean>(false);
   const [timeLeft, setTimeLeft] = useState<number>(TURN_DURATION_SECONDS);
 
   const [roomPlayers, setRoomPlayers] = useState<BoardPlayer[]>([
@@ -992,6 +992,13 @@ export const GameScreen: FC<GameScreenProps> = ({
         </div>
 
         <div className="flex items-center space-x-2">
+                <button
+        onClick={() => setShowRulesModal(true)}
+        className="bg-[#4a154b] hover:bg-[#5e1b5f] border border-amber-400/40 text-amber-200 font-bold px-2.5 py-0.5 rounded-lg text-[10px] transition cursor-pointer flex items-center space-x-1 shadow-sm uppercase tracking-wider"
+      >
+        <span>📜</span>
+        <span>Правила</span>
+      </button>
           {/* Кнопка ручного перехода на Fast Track, если условия выполнены */}
           {!isOnFastTrack && player.financials.passiveIncome > player.financials.totalExpenses && (
             <button
@@ -1294,6 +1301,128 @@ export const GameScreen: FC<GameScreenProps> = ({
       {tradeWaitingMessage && (
         <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 bg-amber-400 text-slate-950 font-black px-4 py-2 rounded-2xl shadow-xl animate-pulse text-xs">
           ⏳ {tradeWaitingMessage}
+        </div>
+      )}
+      {/* Модальное окно полного свода правил прямо во время матча */}
+      {showRulesModal && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 font-sans select-none">
+          <div className="bg-[#fcf9f2] border-2 border-stone-300 w-full max-w-3xl rounded-3xl p-5 sm:p-7 shadow-2xl space-y-4 text-stone-900 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
+            
+            {/* Хедер модалки */}
+            <div className="flex justify-between items-center border-b-2 border-stone-300 pb-3">
+              <div className="flex items-center space-x-2">
+                <span className="text-2xl">📜</span>
+                <h3 className="text-base sm:text-lg font-black text-[#4a154b] tracking-wide">
+                  Официальный свод правил Cashflow 101
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowRulesModal(false)}
+                className="w-8 h-8 bg-stone-200 hover:bg-stone-300 rounded-full flex items-center justify-center text-stone-700 text-sm font-bold cursor-pointer transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Контент правил со скроллом */}
+            <div className="flex-1 overflow-y-auto space-y-4 text-xs sm:text-sm leading-relaxed pr-2">
+              
+              {/* 1. Цель и структура игры */}
+              <div className="bg-[#f4efe4] p-4 rounded-2xl border border-stone-300 space-y-2 shadow-sm">
+                <strong className="text-[#4a154b] font-bold block text-sm sm:text-base border-b border-stone-300 pb-1">
+                  1. Цель и структура игры
+                </strong>
+                <div className="space-y-2 text-stone-800">
+                  <p>
+                    🌀 <strong className="text-stone-950">Малый круг («Крысиные бега» / Rat Race):</strong> симуляция жизни от зарплаты до зарплаты.<br />
+                    • <strong>Главная цель этапа:</strong> создать пассивный доход (от недвижимости, акций, бизнеса), который превысит ваши общие ежемесячные расходы.<br />
+                    • Как только <strong>Пассивный доход &gt; Общие расходы</strong>, вы вырываетесь из крысиных бегов и переходите на Скоростную дорожку.
+                  </p>
+                  <p>
+                    🚀 <strong className="text-stone-950">Большой круг («Скоростная дорожка» / Fast Track):</strong> мир крупного капитала и больших инвестиций.<br />
+                    • <strong>Победа в игре (одно из двух условий):</strong><br />
+                    &nbsp;&nbsp;1. <em>Покупка своей Мечты:</em> попасть на выбранную в начале игры карточку Мечты и выкупить её за наличные.<br />
+                    &nbsp;&nbsp;2. <em>Финансовое господство:</em> увеличить свой ежемесячный денежный поток на Fast Track на <strong>+50 000 $</strong> от стартового значения.
+                  </p>
+                </div>
+              </div>
+
+              {/* 2. Финансовый отчет */}
+              <div className="bg-[#f4efe4] p-4 rounded-2xl border border-stone-300 space-y-2 shadow-sm">
+                <strong className="text-[#4a154b] font-bold block text-sm sm:text-base border-b border-stone-300 pb-1">
+                  2. Финансовый отчет (Основа игры)
+                </strong>
+                <div className="space-y-1.5 text-stone-800">
+                  <p>• <strong>Доходы (Income):</strong> Зарплата (Salary) + Пассивный доход (дивиденды, аренда, бизнес).</p>
+                  <p>• <strong>Расходы (Expenses):</strong> Налоги, ипотека, кредиты на авто, кредитные карты, мелкие кредиты, прочие расходы и расходы на детей.</p>
+                  <p>• <strong>Денежный поток (Monthly Cashflow / Чистый доход):</strong></p>
+                  <div className="bg-[#240a2c] text-amber-300 p-2.5 rounded-xl font-mono font-bold text-center text-xs sm:text-sm my-1 shadow-inner">
+                    Cashflow = Общий доход - Общие расходы
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Малый круг */}
+              <div className="bg-[#f4efe4] p-4 rounded-2xl border border-stone-300 space-y-2 shadow-sm">
+                <strong className="text-[#4a154b] font-bold block text-sm sm:text-base border-b border-stone-300 pb-1">
+                  3. Значение секторов Малого круга
+                </strong>
+                <div className="space-y-1.5 text-stone-800">
+                  <p>🟢 <strong className="text-emerald-800">День получки (Payday):</strong> Получение чистого ежемесячного Денежного потока.</p>
+                  <p>🔵 <strong className="text-blue-800">Возможность (Opportunity):</strong> Выбор между Мелкими сделками (до 5 000 $) и Крупными сделками (от 6 000 $).</p>
+                  <p>🟠 <strong className="text-amber-800">Рынок (Market):</strong> Общее событие для всех игроков: выкуп активов по высокой цене или сплит акций.</p>
+                  <p>🔴 <strong className="text-rose-800">Всякая всячина (Doodads):</strong> Непредвиденные бытовые расходы, списываемые моментально.</p>
+                  <p>🟣 <strong className="text-purple-800">Увольнение (Downturn):</strong> Выплата суммы общих расходов и пропуск 2 ходов.</p>
+                  <p>👶 <strong className="text-pink-800">Ребенок (Baby):</strong> Добавление расходов на ребенка в бланк (до 3 детей).</p>
+                  <p>🤝 <strong className="text-teal-800">Благотворительность (Charity):</strong> Пожертвование 10% дохода дает право бросать 2 кубика 3 хода подряд.</p>
+                </div>
+              </div>
+
+              {/* 4. Большой круг */}
+              <div className="bg-[#f4efe4] p-4 rounded-2xl border border-stone-300 space-y-2 shadow-sm">
+                <strong className="text-[#4a154b] font-bold block text-sm sm:text-base border-b border-stone-300 pb-1">
+                  4. Скоростная дорожка (Fast Track)
+                </strong>
+                <div className="space-y-1.5 text-stone-800">
+                  <p>💰 <strong className="text-emerald-800">День инвестора:</strong> Получение дохода Скоростной дорожки (в 100 раз больше стартового).</p>
+                  <p>🏢 <strong className="text-blue-800">Бизнес-инвестиции:</strong> Покупка доходных предприятий за полную стоимость наличными.</p>
+                  <p>🏝️ <strong className="text-amber-800">Мечта (Dream):</strong> Покупка выбранной мечты приводит к немедленной победе.</p>
+                  <p>⚖️ <strong className="text-rose-800">Налоговый аудит:</strong> Списание 50% всех наличных средств.</p>
+                  <p>💔 <strong className="text-red-800">Развод:</strong> Потеря всех наличных средств (баланс $0).</p>
+                  <p>🏛️ <strong className="text-fuchsia-800">Судебный иск:</strong> Штраф от $50,000 до $60,000 в банк.</p>
+                </div>
+              </div>
+
+              {/* 5. FAQ */}
+              <div className="bg-[#f4efe4] p-4 rounded-2xl border border-stone-300 space-y-2.5 shadow-sm">
+                <strong className="text-[#4a154b] font-bold block text-sm sm:text-base border-b border-stone-300 pb-1">
+                  5. Ответы на частые вопросы (FAQ)
+                </strong>
+                <div className="space-y-2 text-stone-800">
+                  <div>
+                    <strong className="text-stone-950 font-bold">Как работают кредиты?</strong>
+                    <p className="text-stone-700">Банковский заем берется с шагом 1 000 $ под 10%/мес (+100 $ к расходам). Гасится частями по 1 000 $.</p>
+                  </div>
+                  <div>
+                    <strong className="text-stone-950 font-bold">Как работает ипотека при покупке и продаже?</strong>
+                    <p className="text-stone-700">
+                      • <em>При покупке:</em> Вы платите только Первый взнос. Ипотеку банк списывает сам, а платеж уже учтен в Cashflow объекта.<br />
+                      • <em>При продаже на Рынке:</em> Банк забирает остаток ипотеки, а вы получаете чистую разницу: <code>Выплата = Цена покупателя - Ипотека</code>.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Кнопка закрытия модалки */}
+            <button
+              onClick={() => setShowRulesModal(false)}
+              className="w-full bg-[#4a154b] hover:bg-[#5e1b5f] py-3.5 rounded-xl text-xs sm:text-sm font-bold text-amber-200 border border-amber-400/30 transition cursor-pointer uppercase tracking-wider shadow-md"
+            >
+              ВЕРНУТЬСЯ В ИГРУ
+            </button>
+          </div>
         </div>
       )}
       </div>
