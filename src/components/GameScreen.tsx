@@ -969,11 +969,12 @@ export const GameScreen: FC<GameScreenProps> = ({
   };
 
   return (
-    <div className="h-[100dvh] bg-[#130620] text-slate-100 flex flex-col overflow-hidden select-none">
-      <TurnNotification
-        playerName={activeCurrentPlayer?.name || ''}
-        isMyTurn={isMyTurn}
-      />
+   <div 
+    className="h-[100dvh] text-slate-100 flex flex-col overflow-hidden select-none bg-cover bg-center"
+    style={{
+      backgroundImage: `radial-gradient(ellipse at center, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.65) 100%), url('/table-bg.jpg')`
+    }}
+  >
 
       <header className="bg-[#1f0a33] border-b border-purple-900/50 px-2.5 sm:px-6 py-1.5 flex items-center justify-between shadow-lg shrink-0">
         <div className="flex items-center space-x-1.5">
