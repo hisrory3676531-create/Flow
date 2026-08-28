@@ -120,7 +120,7 @@ export const GameBoard: FC<GameBoardProps> = ({
     }
   };
 
- const getFastTrackRect = (index: number) => {
+const getFastTrackRect = (index: number) => {
     if (isMobile) {
       const W_TOP = 114;
       const H_TOP = 100;
@@ -150,40 +150,41 @@ export const GameBoard: FC<GameBoardProps> = ({
       return { x: LEFT_X, y, w: W_SIDE, h: H_SIDE, center: { x: LEFT_X + W_SIDE / 2, y: y + H_SIDE / 2 } };
     }
 
-    // ДЕСКТОП: 34 карточки (10 сверху, 7 справа, 10 снизу, 7 слева)
-    const W = 110;
+    // ДЕСКТОП: 34 карточки (11 сверху, 6 справа, 11 снизу, 6 слева)
+    // Размеры и отступы подогнаны с математической точностью
+    const W = 100;
     const H = 64;
-    const H_SIDE = 74;    // Высота 7 боковых карточек
-    const STEP_Y = 82.5;  // Точный шаг по высоте между боковыми карточками
+    const H_SIDE = 84;       // Комфортная высота боковых карточек
+    const STEP_SIDE_Y = 91.5; // Шаг по вертикали между центрами
 
     const LEFT_X = 25;
-    const RIGHT_X = 1065;
+    const RIGHT_X = 1075;
     const TOP_Y = 25;
     const BOTTOM_Y = 660;
 
-    // 0..9: Верхний ряд (10 карточек, слева направо)
-    if (index >= 0 && index <= 9) {
-      const x = LEFT_X + index * 115.5;
-      return { x, y: TOP_Y, w: 112, h: H, center: { x: x + 56, y: TOP_Y + 32 } };
+    // 0..10: Верхний ряд (11 карточек, от X=25 до X=1075)
+    if (index >= 0 && index <= 10) {
+      const x = LEFT_X + index * 105;
+      return { x, y: TOP_Y, w: W, h: H, center: { x: x + W / 2, y: TOP_Y + H / 2 } };
     }
 
-    // 10..16: Правый ряд (7 карточек, сверху вниз)
-    if (index >= 10 && index <= 16) {
-      const sub = index - 9;
-      const y = TOP_Y + sub * STEP_Y;
+    // 11..16: Правый ряд (6 карточек СТРОГО МЕЖДУ верхним и нижним углами)
+    if (index >= 11 && index <= 16) {
+      const sub = index - 11;
+      const y = 100 + sub * STEP_SIDE_Y;
       return { x: RIGHT_X, y, w: W, h: H_SIDE, center: { x: RIGHT_X + W / 2, y: y + H_SIDE / 2 } };
     }
 
-    // 17..26: Нижний ряд (10 карточек, справа налево)
-    if (index >= 17 && index <= 26) {
+    // 17..27: Нижний ряд (11 карточек, справа налево от X=1075 до X=25)
+    if (index >= 17 && index <= 27) {
       const sub = index - 17;
-      const x = RIGHT_X - sub * 115.5;
-      return { x, y: BOTTOM_Y, w: 112, h: H, center: { x: x + 56, y: BOTTOM_Y + 32 } };
+      const x = RIGHT_X - sub * 105;
+      return { x, y: BOTTOM_Y, w: W, h: H, center: { x: x + W / 2, y: BOTTOM_Y + H / 2 } };
     }
 
-    // 27..33: Левый ряд (7 карточек, снизу вверх)
-    const sub = index - 26;
-    const y = BOTTOM_Y - sub * STEP_Y;
+    // 28..33: Левый ряд (6 карточек СТРОГО МЕЖДУ нижним и верхним углами, снизу вверх)
+    const sub = index - 28;
+    const y = 557.5 - sub * STEP_SIDE_Y;
     return { x: LEFT_X, y, w: W, h: H_SIDE, center: { x: LEFT_X + W / 2, y: y + H_SIDE / 2 } };
   };
 
