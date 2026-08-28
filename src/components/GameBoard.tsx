@@ -120,13 +120,8 @@ export const GameBoard: FC<GameBoardProps> = ({
     }
   };
 
- const getFastTrackRect = (index: number) => {
-    // Карточки делаем чуть компактнее, чтобы 30 штук свободно легли по волне
-    const W = isMobile ? 100 : 96;
-    const H = isMobile ? 86 : 56;
-
+  const getFastTrackRect = (index: number) => {
     if (isMobile) {
-      // Мобильная раскладка
       const W_TOP = 114;
       const H_TOP = 100;
       const W_SIDE = 100;
@@ -136,74 +131,49 @@ export const GameBoard: FC<GameBoardProps> = ({
       const TOP_Y = 14;
       const BOTTOM_Y = 1086;
 
-      if (index >= 0 && index <= 6) {
-        const x = LEFT_X + index * 102;
+      if (index >= 0 && index <= 5) {
+        const x = LEFT_X + index * 120.4;
         return { x, y: TOP_Y, w: W_TOP, h: H_TOP, center: { x: x + W_TOP / 2, y: TOP_Y + H_TOP / 2 } };
       }
-      if (index >= 7 && index <= 14) {
-        const sub = index - 6;
-        const y = TOP_Y + sub * 120;
+      if (index >= 6 && index <= 14) {
+        const sub = index - 5;
+        const y = TOP_Y + sub * 107.2;
         return { x: RIGHT_X, y, w: W_SIDE, h: H_SIDE, center: { x: RIGHT_X + W_SIDE / 2, y: y + H_SIDE / 2 } };
       }
-      if (index >= 15 && index <= 21) {
+      if (index >= 15 && index <= 20) {
         const sub = index - 15;
-        const x = RIGHT_X - sub * 102;
+        const x = RIGHT_X - sub * 120.4;
         return { x, y: BOTTOM_Y, w: W_TOP, h: H_TOP, center: { x: x + W_TOP / 2, y: BOTTOM_Y + H_TOP / 2 } };
       }
-      const sub = index - 21;
-      const y = BOTTOM_Y - sub * 120;
+      const sub = index - 20;
+      const y = BOTTOM_Y - sub * 107.2;
       return { x: LEFT_X, y, w: W_SIDE, h: H_SIDE, center: { x: LEFT_X + W_SIDE / 2, y: y + H_SIDE / 2 } };
     }
 
-    // ДЕСКТОП: Точные координаты 30 карточек по волнообразной траектории (1200 x 750)
-    const POSITIONS: Array<{ x: number; y: number }> = [
-      // 0..7: Верхняя прямая с плавным переходом в правый угол
-      { x: 35, y: 25 },
-      { x: 145, y: 25 },
-      { x: 255, y: 25 },
-      { x: 365, y: 25 },
-      { x: 740, y: 25 },
-      { x: 850, y: 25 },
-      { x: 960, y: 25 },
-      { x: 1070, y: 35 },
+    const W = 110;
+    const H = 64;
+    const LEFT_X = 25;
+    const RIGHT_X = 1065;
+    const TOP_Y = 25;
+    const BOTTOM_Y = 660;
 
-      // 8..14: Правая волна (изгиб внутрь к кругу и затем обратно наружу)
-      { x: 1070, y: 115 },
-      { x: 990, y: 200 },
-      { x: 915, y: 295 },
-      { x: 915, y: 395 },
-      { x: 990, y: 490 },
-      { x: 1070, y: 575 },
-      { x: 1070, y: 660 },
-
-      // 15..21: Нижняя линия
-      { x: 960, y: 665 },
-      { x: 850, y: 665 },
-      { x: 740, y: 665 },
-      { x: 365, y: 665 },
-      { x: 255, y: 665 },
-      { x: 145, y: 665 },
-      { x: 35, y: 665 },
-
-      // 22..29: Левая волна (изгиб внутрь к кругу и возврат наверх)
-      { x: 35, y: 575 },
-      { x: 115, y: 490 },
-      { x: 190, y: 395 },
-      { x: 190, y: 295 },
-      { x: 115, y: 200 },
-      { x: 35, y: 115 },
-      { x: 475, y: 25 },
-      { x: 605, y: 25 },
-    ];
-
-    const pos = POSITIONS[index] || { x: 35, y: 25 };
-    return {
-      x: pos.x,
-      y: pos.y,
-      w: W,
-      h: H,
-      center: { x: pos.x + W / 2, y: pos.y + H / 2 }
-    };
+    if (index >= 0 && index <= 9) {
+      const x = LEFT_X + index * 115.5;
+      return { x, y: TOP_Y, w: 112, h: H, center: { x: x + 56, y: TOP_Y + 32 } };
+    }
+    if (index >= 10 && index <= 14) {
+      const sub = index - 9;
+      const y = TOP_Y + sub * 105.8;
+      return { x: RIGHT_X, y, w: W, h: 102, center: { x: RIGHT_X + 55, y: y + 51 } };
+    }
+    if (index >= 15 && index <= 24) {
+      const sub = index - 15;
+      const x = RIGHT_X - sub * 115.5;
+      return { x, y: BOTTOM_Y, w: 112, h: H, center: { x: x + 56, y: BOTTOM_Y + 32 } };
+    }
+    const sub = index - 24;
+    const y = BOTTOM_Y - sub * 105.8;
+    return { x: LEFT_X, y, w: W, h: 102, center: { x: LEFT_X + 55, y: y + 51 } };
   };
 
   const viewBoxValue = isMobile ? '0 0 750 1200' : '0 0 1200 750';
