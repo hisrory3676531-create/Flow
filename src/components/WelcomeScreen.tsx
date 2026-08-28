@@ -112,7 +112,7 @@ export const WelcomeScreen: FC<WelcomeScreenProps> = ({ onAcceptRules }) => {
                     🚀 <strong className="text-slate-100">Большой круг («Скоростная дорожка» / Fast Track):</strong> мир крупного капитала и больших инвестиций.<br />
                     • <strong>Победа в игре (одно из двух условий):</strong><br />
                     &nbsp;&nbsp;1. <em>Покупка своей Мечты:</em> попасть на выбранную в начале игры карточку Мечты и выкупить её за наличные.<br />
-                    &nbsp;&nbsp;2. <em>Финансовое господство:</em> увеличить свой ежемесячный денежный поток на Fast Track на <strong>+50 000 $</strong> от стартового значения.
+                    &nbsp;&nbsp;2. <em>Финансовое господство:</em> увеличить свой ежемесячный денежный поток на Fast Track на <strong>+50 0000 $</strong> от стартового значения.
                   </p>
                 </div>
               </div>
@@ -152,7 +152,7 @@ export const WelcomeScreen: FC<WelcomeScreenProps> = ({ onAcceptRules }) => {
                 <strong className="text-indigo-400 font-bold block text-sm sm:text-base">4. Большой круг (Fast Track): Секторы и механики</strong>
                 <p className="text-slate-300">На Скоростной дорожке правила меняются: зарплаты больше нет, а ваш стартовый денежный поток рассчитывается как:</p>
                 <div className="bg-slate-900 border border-slate-800 p-2.5 rounded-xl font-mono text-indigo-300 font-bold text-center text-xs sm:text-sm my-1">
-                  Cashflow на Fast Track = Пассивный доход с Малого круга × 100
+                  Cashflow на Fast Track = Пассивный доход с Малого круга × 10
                 </div>
                 <div className="space-y-2 text-slate-300 mt-2">
                   <p>💰 <strong className="text-emerald-400">День инвестора (Cashflow Day):</strong> Вы получаете полную сумму своего обновленного денежного потока Fast Track.</p>
@@ -191,6 +191,13 @@ export const WelcomeScreen: FC<WelcomeScreenProps> = ({ onAcceptRules }) => {
                     <p className="text-slate-400">
                       • <strong>Прирост капитала (Capital Gain):</strong> покупка дешевых акций по $5 с последующей продажей по $40 на секторе «Рынок». Дает много наличных для первого взноса.<br />
                       • <strong>Денежный поток (Cashflow):</strong> покупка доходного дома, который каждый месяц приносит +$300 чистыми. Приближает к выходу из Крысиных бегов.
+                      <div>
+  <strong className="text-slate-100">5. Как работает ипотека на недвижимость при покупке и продаже?</strong>
+  <p className="text-slate-400">
+    • <strong>При покупке:</strong> Вы платите только <em>Первый взнос (Down Payment)</em>. Остаток суммы банк берет на себя как <em>Ипотеку (Mortgage)</em>. Ежемесячный платеж по ней уже учтен в графе Cashflow объекта.<br />
+    • <strong>При продаже на Рынке:</strong> Покупатель выплачивает полную сумму. Банк автоматически забирает остаток ипотеки, а вы получаете на руки разницу: <code>Чистая выплата = Цена покупателя - Ипотека</code>.
+  </p>
+</div>
                     </p>
                   </div>
                 </div>
