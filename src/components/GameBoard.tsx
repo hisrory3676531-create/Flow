@@ -61,7 +61,7 @@ export const GameBoard: FC<GameBoardProps> = ({
     position: 0,
     fastTrackPosition: 0,
     isOnFastTrack: false,
-    color: { id: 'purple', name: 'Фиолетовая', hex: '#a855f7', bgClass: '', borderClass: '', textClass: '' },
+    color: { id: 'purple', name: 'Фиолетовая', hex: '#8b5cf6', bgClass: '', borderClass: '', textClass: '' },
     isCurrentTurn: true
   };
 
@@ -93,29 +93,30 @@ export const GameBoard: FC<GameBoardProps> = ({
     return index * angleStep + angleStep / 2;
   };
 
+  // Аутентичные матовые цвета настолки Cashflow 101
   const getTileFill = (type: BoardTile['type']) => {
     switch (type) {
-      case 'PAYDAY': return '#065f46';
-      case 'DEAL': return '#1e3a8a';
-      case 'DOODAD': return '#881337';
-      case 'MARKET': return '#78350f';
-      case 'CHARITY': return '#115e59';
-      case 'DOWNTURN': return '#581c87';
-      case 'BABY': return '#831843';
-      default: return '#1e293b';
+      case 'PAYDAY': return '#15803d'; // Зеленый чек
+      case 'DEAL': return '#1d4ed8';   // Синяя возможность
+      case 'DOODAD': return '#be185d'; // Розовая всякая всячина
+      case 'MARKET': return '#ea580c'; // Оранжевый рынок
+      case 'CHARITY': return '#0f766e'; // Благотворительность
+      case 'DOWNTURN': return '#6b21a8'; // Увольнение
+      case 'BABY': return '#a21caf';     // Ребенок
+      default: return '#334155';
     }
   };
 
   const getFastTrackTileFill = (tile: FastTrackTile) => {
     switch (tile.type) {
-      case 'PAYDAY': return '#064e3b';
-      case 'BUSINESS': return '#0c4a6e';
-      case 'DREAM': return '#78350f';
-      case 'TAX_AUDIT': return '#7f1d1d';
-      case 'DIVORCE': return '#881337';
-      case 'LAWSUIT': return '#831843';
-      case 'DONATION': return '#4c1d95';
-      default: return '#1e1b4b';
+      case 'PAYDAY': return '#166534';
+      case 'BUSINESS': return '#0369a1';
+      case 'DREAM': return '#b45309';
+      case 'TAX_AUDIT': return '#b91c1c';
+      case 'DIVORCE': return '#991b1b';
+      case 'LAWSUIT': return '#9f1239';
+      case 'DONATION': return '#5b21b6';
+      default: return '#1e293b';
     }
   };
 
@@ -179,47 +180,47 @@ export const GameBoard: FC<GameBoardProps> = ({
 
   return (
     <div className="w-full h-full flex flex-col justify-between select-none relative">
-      <div className="flex items-center justify-between gap-1 bg-[#1c082e]/90 border border-purple-900/50 rounded-xl px-2 py-1 mb-1 shrink-0 shadow-md">
+      {/* Верхний статус-бар игровой доски */}
+      <div className="flex items-center justify-between gap-1 bg-[#240a2c] border border-amber-500/40 rounded-xl px-2.5 py-1 mb-1.5 shrink-0 shadow-md">
         <div className="flex items-center space-x-1.5">
-          <span className="text-[11px] font-black text-amber-300 tracking-wider">CASHFLOW</span>
-          <span className="text-[9px] px-1.5 py-0.2 rounded bg-purple-950 border border-purple-700/60 font-mono text-purple-300">
+          <span className="text-[11px] font-black text-amber-400 tracking-wider">CASHFLOW</span>
+          <span className="text-[9px] px-1.5 py-0.2 rounded bg-[#3b1247] border border-amber-500/30 font-bold text-amber-200">
             {activePlayer.isOnFastTrack ? 'FAST TRACK' : 'МАЛЫЙ КРУГ'}
           </span>
         </div>
 
-        <div className="flex items-center space-x-1 overflow-x-auto py-0.5 max-w-[60%]">
+        <div className="flex items-center space-x-1.5 overflow-x-auto py-0.5 max-w-[60%]">
           {safePlayers.map((p) => (
             <div
               key={p.id}
-              className={`flex items-center space-x-1 px-1.5 py-0.5 rounded-md text-[10px] border shrink-0 ${
+              className={`flex items-center space-x-1.5 px-2 py-0.5 rounded-lg text-[10px] border shrink-0 transition ${
                 p.id === activePlayer.id
-                  ? 'border-amber-400 bg-amber-400/20 text-amber-300 font-bold shadow-sm'
-                  : 'border-slate-800 bg-slate-950/80 text-slate-400'
+                  ? 'border-amber-400 bg-amber-500/20 text-amber-200 font-black shadow'
+                  : 'border-purple-900/60 bg-[#19061f] text-slate-400'
               }`}
             >
-              <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.color?.hex || '#a855f7' }} />
-              <span className="truncate max-w-[50px]">{p.name}</span>
-              <span className="text-[9px] opacity-75 font-mono">
+              <div className="w-2 h-2 rounded-full ring-1 ring-black/40" style={{ backgroundColor: p.color?.hex || '#8b5cf6' }} />
+              <span className="truncate max-w-[55px]">{p.name}</span>
+              <span className="text-[9px] font-mono opacity-80">
                 {p.isOnFastTrack ? `🚀#${p.fastTrackPosition}` : `🐀#${p.position}`}
               </span>
             </div>
           ))}
         </div>
 
-        <div className="text-[10px] font-mono font-bold text-emerald-400 shrink-0">
+        <div className="text-[10px] font-bold text-amber-300 bg-[#3b1247] px-2 py-0.5 rounded border border-amber-500/30 shrink-0">
           #{currentTilePosition} {currentTileTitle}
         </div>
       </div>
 
-      <div className="relative w-full flex-1 flex items-center justify-center min-h-0 overflow-hidden bg-[#1c082e]/90 border border-purple-900/50 rounded-2xl shadow-2xl p-1">
-        
-        {/* Анимированный 3D бросок кубика по центру игрового поля для всех участников */}
+      {/* Игровое поле */}
+      <div className="relative w-full flex-1 flex items-center justify-center min-h-0 overflow-hidden bg-[#240a2c] border-2 border-amber-500/30 rounded-2xl shadow-xl p-1">
         {isRolling && (
-          <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-slate-950/60 backdrop-blur-[3px] rounded-2xl animate-in fade-in zoom-in-95 duration-200 pointer-events-none">
-            <div className="bg-slate-900/95 border-2 border-amber-400 p-5 sm:p-6 rounded-3xl shadow-2xl shadow-amber-500/40 flex flex-col items-center space-y-3">
+          <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/60 backdrop-blur-[2px] rounded-2xl animate-in fade-in duration-150 pointer-events-none">
+            <div className="bg-[#2d0d38] border-2 border-amber-400 p-5 sm:p-6 rounded-2xl shadow-2xl flex flex-col items-center space-y-3">
               <Dice3DContainer value={diceValue} isRolling={isRolling} size={58} />
-              <span className="text-xs font-mono font-black text-amber-300 uppercase tracking-widest animate-pulse">
-                🎲 Бросок кубика ({activePlayer.name})...
+              <span className="text-xs font-black text-amber-300 uppercase tracking-widest animate-pulse">
+                🎲 Бросок ({activePlayer.name})...
               </span>
             </div>
           </div>
@@ -230,17 +231,19 @@ export const GameBoard: FC<GameBoardProps> = ({
           preserveAspectRatio="xMidYMid meet"
           className="w-full h-full max-h-full select-none"
         >
+          {/* Фон картонной доски Fast Track */}
           <rect
             x="6"
             y="6"
             width={isMobile ? '738' : '1188'}
             height={isMobile ? '1188' : '738'}
-            rx="24"
-            fill="#10031c"
-            stroke="#4c1d95"
-            strokeWidth="2"
+            rx="20"
+            fill="#1d0724"
+            stroke="#b45309"
+            strokeWidth="3"
           />
 
+          {/* Клетки Fast Track */}
           {FAST_TRACK_TILES.map((tile) => {
             const r = getFastTrackRect(tile.id);
             const isTargeted = activePlayer.isOnFastTrack && activePlayer.fastTrackPosition === tile.id;
@@ -252,9 +255,9 @@ export const GameBoard: FC<GameBoardProps> = ({
                   y={r.y}
                   width={r.w}
                   height={r.h}
-                  rx="12"
+                  rx="8"
                   fill={getFastTrackTileFill(tile)}
-                  stroke={isTargeted ? (activePlayer.color?.hex || '#f59e0b') : tile.color}
+                  stroke={isTargeted ? '#fbbf24' : '#78350f'}
                   strokeWidth={isTargeted ? '3.5' : '1.5'}
                 />
 
@@ -271,7 +274,7 @@ export const GameBoard: FC<GameBoardProps> = ({
                   x={r.center.x}
                   y={r.center.y + (isMobile ? 8 : 7)}
                   textAnchor="middle"
-                  fill="#f8fafc"
+                  fill="#ffffff"
                   fontSize={isMobile ? '9' : '7.5'}
                   fontWeight="800"
                   fontFamily="sans-serif"
@@ -283,7 +286,7 @@ export const GameBoard: FC<GameBoardProps> = ({
                   x={r.center.x}
                   y={r.center.y + (isMobile ? 22 : 17)}
                   textAnchor="middle"
-                  fill="#94a3b8"
+                  fill="#fde68a"
                   fontSize={isMobile ? '8' : '6'}
                   fontWeight="bold"
                   fontFamily="monospace"
@@ -294,9 +297,11 @@ export const GameBoard: FC<GameBoardProps> = ({
             );
           })}
 
-          <circle cx={CENTER_X} cy={CENTER_Y} r={OUTER_R + 5} fill="#230640" stroke="#eab308" strokeWidth="3" />
-          <circle cx={CENTER_X} cy={CENTER_Y} r={INNER_R - 4} fill="#0d0218" stroke="#a855f7" strokeWidth="2" />
+          {/* Внешний обод малого круга */}
+          <circle cx={CENTER_X} cy={CENTER_Y} r={OUTER_R + 4} fill="#b45309" stroke="#78350f" strokeWidth="2" />
+          <circle cx={CENTER_X} cy={CENTER_Y} r={INNER_R - 3} fill="#f5eedc" stroke="#d97706" strokeWidth="3" />
 
+          {/* Сектора малого круга */}
           {BOARD_TILES.map((tile, i) => {
             const path = getSectorPath(i);
             const deg = getSectorAngle(i);
@@ -311,8 +316,8 @@ export const GameBoard: FC<GameBoardProps> = ({
                 <path
                   d={path}
                   fill={getTileFill(tile.type)}
-                  stroke={isTargeted ? (activePlayer.color?.hex || '#eab308') : '#4c1d95'}
-                  strokeWidth={isTargeted ? '4' : '1.2'}
+                  stroke={isTargeted ? '#fef08a' : '#ffffff'}
+                  strokeWidth={isTargeted ? '3.5' : '1'}
                 />
 
                 <g transform={`translate(${CENTER_X}, ${CENTER_Y}) rotate(${deg})`}>
@@ -320,7 +325,7 @@ export const GameBoard: FC<GameBoardProps> = ({
                     x="0"
                     y={-OUTER_R + 12}
                     textAnchor="middle"
-                    fill="#cbd5e1"
+                    fill="#fef08a"
                     fontSize={isMobile ? '8' : '6.5'}
                     fontFamily="monospace"
                     fontWeight="bold"
@@ -344,7 +349,7 @@ export const GameBoard: FC<GameBoardProps> = ({
                     textAnchor="middle"
                     fill="#ffffff"
                     fontSize={isMobile ? '8' : '6.5'}
-                    fontWeight="800"
+                    fontWeight="900"
                     letterSpacing="0.2"
                   >
                     {tile.title}
@@ -354,12 +359,14 @@ export const GameBoard: FC<GameBoardProps> = ({
             );
           })}
 
+          {/* Центральный круг «Крысиных бегов» в винтажно-бумажном стиле */}
           <g transform={`translate(${CENTER_X}, ${CENTER_Y})`}>
-            <circle cx="0" cy="0" r={isMobile ? 125 : 120} fill="#1b0533" stroke="#f59e0b" strokeWidth="2.5" />
-            <text x="0" y="-55" textAnchor="middle" fill="#facc15" fontSize={isMobile ? '24' : '20'} fontWeight="900" letterSpacing="1.5">
+            <circle cx="0" cy="0" r={isMobile ? 125 : 120} fill="#f5eedc" stroke="#d97706" strokeWidth="3" />
+            
+            <text x="0" y="-55" textAnchor="middle" fill="#4a154b" fontSize={isMobile ? '24' : '20'} fontWeight="900" letterSpacing="1.5">
               CASHFLOW
             </text>
-            <text x="0" y="-38" textAnchor="middle" fill="#cbd5e1" fontSize="8" fontWeight="bold">
+            <text x="0" y="-38" textAnchor="middle" fill="#78350f" fontSize="8" fontWeight="bold">
               ВЫХОД ИЗ КРЫСИНЫХ БЕГОВ
             </text>
 
@@ -367,12 +374,13 @@ export const GameBoard: FC<GameBoardProps> = ({
               🐀
             </text>
 
-            <rect x="-60" y="52" width="120" height="20" rx="10" fill="#090314" stroke="#eab308" strokeWidth="1" />
-            <text x="0" y="65" textAnchor="middle" fill="#4ade80" fontSize="9" fontWeight="bold" fontFamily="monospace">
+            <rect x="-60" y="52" width="120" height="20" rx="10" fill="#4a154b" stroke="#d97706" strokeWidth="1.5" />
+            <text x="0" y="65" textAnchor="middle" fill="#fef08a" fontSize="9" fontWeight="bold" fontFamily="monospace">
               МАЛЫЙ КРУГ
             </text>
           </g>
 
+          {/* Фишки на малом круге */}
           {BOARD_TILES.map((tile) => {
             const playersOnTile = safePlayers.filter(
               (p) => !p.isOnFastTrack && (p.position ?? 0) === tile.id
@@ -401,9 +409,9 @@ export const GameBoard: FC<GameBoardProps> = ({
                           cy="0"
                           r="12"
                           fill="none"
-                          stroke="#ffffff"
-                          strokeWidth="2"
-                          className="animate-ping opacity-75"
+                          stroke="#fbbf24"
+                          strokeWidth="2.5"
+                          className="animate-ping opacity-80"
                         />
                       )}
                       <circle
@@ -411,14 +419,14 @@ export const GameBoard: FC<GameBoardProps> = ({
                         cy="0"
                         r="8"
                         fill={p.color?.hex || '#ec4899'}
-                        stroke="#0f172a"
+                        stroke="#1e293b"
                         strokeWidth="1.5"
                       />
                       <text
                         x="0"
                         y="3"
                         textAnchor="middle"
-                        fill="#020617"
+                        fill="#ffffff"
                         fontSize="7"
                         fontWeight="900"
                         fontFamily="sans-serif"
@@ -432,6 +440,7 @@ export const GameBoard: FC<GameBoardProps> = ({
             );
           })}
 
+          {/* Фишки на Скоростной дорожке */}
           {FAST_TRACK_TILES.map((tile) => {
             const playersOnTile = safePlayers.filter(
               (p) => p.isOnFastTrack && (p.fastTrackPosition ?? 0) === tile.id
@@ -455,7 +464,7 @@ export const GameBoard: FC<GameBoardProps> = ({
                           cy="0"
                           r="13"
                           fill="none"
-                          stroke="#f59e0b"
+                          stroke="#fbbf24"
                           strokeWidth="2.5"
                           className="animate-ping opacity-80"
                         />
