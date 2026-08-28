@@ -120,7 +120,7 @@ export const GameBoard: FC<GameBoardProps> = ({
     }
   };
 
-  const getFastTrackRect = (index: number) => {
+ const getFastTrackRect = (index: number) => {
     if (isMobile) {
       const W_TOP = 114;
       const H_TOP = 100;
@@ -131,49 +131,60 @@ export const GameBoard: FC<GameBoardProps> = ({
       const TOP_Y = 14;
       const BOTTOM_Y = 1086;
 
-      if (index >= 0 && index <= 5) {
-        const x = LEFT_X + index * 120.4;
+      if (index >= 0 && index <= 7) {
+        const x = LEFT_X + index * 88;
         return { x, y: TOP_Y, w: W_TOP, h: H_TOP, center: { x: x + W_TOP / 2, y: TOP_Y + H_TOP / 2 } };
       }
-      if (index >= 6 && index <= 14) {
-        const sub = index - 5;
+      if (index >= 8 && index <= 16) {
+        const sub = index - 7;
         const y = TOP_Y + sub * 107.2;
         return { x: RIGHT_X, y, w: W_SIDE, h: H_SIDE, center: { x: RIGHT_X + W_SIDE / 2, y: y + H_SIDE / 2 } };
       }
-      if (index >= 15 && index <= 20) {
-        const sub = index - 15;
-        const x = RIGHT_X - sub * 120.4;
+      if (index >= 17 && index <= 24) {
+        const sub = index - 17;
+        const x = RIGHT_X - sub * 88;
         return { x, y: BOTTOM_Y, w: W_TOP, h: H_TOP, center: { x: x + W_TOP / 2, y: BOTTOM_Y + H_TOP / 2 } };
       }
-      const sub = index - 20;
+      const sub = index - 24;
       const y = BOTTOM_Y - sub * 107.2;
       return { x: LEFT_X, y, w: W_SIDE, h: H_SIDE, center: { x: LEFT_X + W_SIDE / 2, y: y + H_SIDE / 2 } };
     }
 
+    // ДЕСКТОП: Сетка 10 сверху, 7 справа, 10 снизу, 7 слева (всего 34 карточки)
     const W = 110;
     const H = 64;
+    const H_SIDE = 72; // Высота боковых карточек
+    const STEP_Y = 79.4; // Шаг по вертикали для 7 карточек
+
     const LEFT_X = 25;
     const RIGHT_X = 1065;
     const TOP_Y = 25;
     const BOTTOM_Y = 660;
 
+    // 0..9: Верхний ряд (10 карточек)
     if (index >= 0 && index <= 9) {
       const x = LEFT_X + index * 115.5;
       return { x, y: TOP_Y, w: 112, h: H, center: { x: x + 56, y: TOP_Y + 32 } };
     }
-    if (index >= 10 && index <= 14) {
+
+    // 10..16: Правый ряд (7 карточек)
+    if (index >= 10 && index <= 16) {
       const sub = index - 9;
-      const y = TOP_Y + sub * 105.8;
-      return { x: RIGHT_X, y, w: W, h: 102, center: { x: RIGHT_X + 55, y: y + 51 } };
+      const y = TOP_Y + sub * STEP_Y;
+      return { x: RIGHT_X, y, w: W, h: H_SIDE, center: { x: RIGHT_X + W / 2, y: y + H_SIDE / 2 } };
     }
-    if (index >= 15 && index <= 24) {
-      const sub = index - 15;
+
+    // 17..26: Нижний ряд (10 карточек, справа налево)
+    if (index >= 17 && index <= 26) {
+      const sub = index - 17;
       const x = RIGHT_X - sub * 115.5;
       return { x, y: BOTTOM_Y, w: 112, h: H, center: { x: x + 56, y: BOTTOM_Y + 32 } };
     }
-    const sub = index - 24;
-    const y = BOTTOM_Y - sub * 105.8;
-    return { x: LEFT_X, y, w: W, h: 102, center: { x: LEFT_X + 55, y: y + 51 } };
+
+    // 27..33: Левый ряд (7 карточек, снизу вверх)
+    const sub = index - 26;
+    const y = BOTTOM_Y - sub * STEP_Y;
+    return { x: LEFT_X, y, w: W, h: H_SIDE, center: { x: LEFT_X + W / 2, y: y + H_SIDE / 2 } };
   };
 
   const viewBoxValue = isMobile ? '0 0 750 1200' : '0 0 1200 750';
