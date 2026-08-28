@@ -325,5 +325,46 @@ export const FAST_TRACK_TILES: FastTrackTile[] = [
     cost: 280000,
     downPayment: 280000,
     cashflow: 32000
+  },
+
+  // 30 - 33 (Новые 4 карточки для сетки из 34 ячеек)
+  {
+    id: 30,
+    title: 'Космический туризм',
+    type: 'DREAM',
+    icon: '🚀',
+    color: '#f59e0b',
+    dreamId: 'dream_space',
+    description: 'Сектор Мечты: Полет на околоземную орбиту и космическая станция.',
+    cost: 2500000
+  },
+  {
+    id: 31,
+    title: 'Сеть дата-центров',
+    type: 'BUSINESS',
+    icon: '🗄️',
+    color: '#0284c7',
+    description: 'Инфраструктура облачных вычислений и серверов для ИИ.',
+    cost: 260000,
+    downPayment: 260000,
+    cashflow: 30000
+  },
+  {
+    id: 32,
+    title: 'Коллекция суперкаров',
+    type: 'DREAM',
+    icon: '🏎️',
+    color: '#f59e0b',
+    dreamId: 'dream_cars',
+    description: 'Сектор Мечты: Гараж из 10 легендарных раритетных гиперкаров.',
+    cost: 1600000
+  },
+  {
+    id: 33,
+    title: 'Судебный иск партнеров',
+    type: 'LAWSUIT',
+    icon: '🏛️',
+    color: '#f43f5e',
+    description: 'Корпоративный спор по акциям: выплата компенсации 60 000 $.'
   }
 ];

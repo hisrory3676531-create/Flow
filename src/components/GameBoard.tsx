@@ -131,43 +131,43 @@ export const GameBoard: FC<GameBoardProps> = ({
       const TOP_Y = 14;
       const BOTTOM_Y = 1086;
 
-      if (index >= 0 && index <= 7) {
-        const x = LEFT_X + index * 88;
+      if (index >= 0 && index <= 8) {
+        const x = LEFT_X + index * 77.7;
         return { x, y: TOP_Y, w: W_TOP, h: H_TOP, center: { x: x + W_TOP / 2, y: TOP_Y + H_TOP / 2 } };
       }
-      if (index >= 8 && index <= 16) {
-        const sub = index - 7;
-        const y = TOP_Y + sub * 107.2;
+      if (index >= 9 && index <= 16) {
+        const sub = index - 8;
+        const y = TOP_Y + sub * 120;
         return { x: RIGHT_X, y, w: W_SIDE, h: H_SIDE, center: { x: RIGHT_X + W_SIDE / 2, y: y + H_SIDE / 2 } };
       }
-      if (index >= 17 && index <= 24) {
+      if (index >= 17 && index <= 25) {
         const sub = index - 17;
-        const x = RIGHT_X - sub * 88;
+        const x = RIGHT_X - sub * 77.7;
         return { x, y: BOTTOM_Y, w: W_TOP, h: H_TOP, center: { x: x + W_TOP / 2, y: BOTTOM_Y + H_TOP / 2 } };
       }
-      const sub = index - 24;
-      const y = BOTTOM_Y - sub * 107.2;
+      const sub = index - 25;
+      const y = BOTTOM_Y - sub * 120;
       return { x: LEFT_X, y, w: W_SIDE, h: H_SIDE, center: { x: LEFT_X + W_SIDE / 2, y: y + H_SIDE / 2 } };
     }
 
-    // ДЕСКТОП: Сетка 10 сверху, 7 справа, 10 снизу, 7 слева (всего 34 карточки)
+    // ДЕСКТОП: 34 карточки (10 сверху, 7 справа, 10 снизу, 7 слева)
     const W = 110;
     const H = 64;
-    const H_SIDE = 72; // Высота боковых карточек
-    const STEP_Y = 79.4; // Шаг по вертикали для 7 карточек
+    const H_SIDE = 74;    // Высота 7 боковых карточек
+    const STEP_Y = 82.5;  // Точный шаг по высоте между боковыми карточками
 
     const LEFT_X = 25;
     const RIGHT_X = 1065;
     const TOP_Y = 25;
     const BOTTOM_Y = 660;
 
-    // 0..9: Верхний ряд (10 карточек)
+    // 0..9: Верхний ряд (10 карточек, слева направо)
     if (index >= 0 && index <= 9) {
       const x = LEFT_X + index * 115.5;
       return { x, y: TOP_Y, w: 112, h: H, center: { x: x + 56, y: TOP_Y + 32 } };
     }
 
-    // 10..16: Правый ряд (7 карточек)
+    // 10..16: Правый ряд (7 карточек, сверху вниз)
     if (index >= 10 && index <= 16) {
       const sub = index - 9;
       const y = TOP_Y + sub * STEP_Y;
